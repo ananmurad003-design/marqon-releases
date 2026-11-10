@@ -1,0 +1,53 @@
+name: Tharaa Android APK
+
+on:
+  push:
+    branches: [ "claude/android-money-allocation-app-wey4jl" ]
+    paths: [ "tharaa/**", ".github/workflows/tharaa-android.yml" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tharaa
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        run: chmod +x gradlew && ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Prepare signing key (optional secret)
+        env:
+          KEYSTORE_B64: ${{ secrets.THARAA_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "THARAA_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::THARAA_KEYSTORE_B64 secret not set: APK is signed with a temporary debug key"
+          fi
+
+      - name: Build APK
+        env:
+          THARAA_STORE_PASSWORD: ${{ secrets.THARAA_STORE_PASSWORD }}
+          THARAA_KEY_ALIAS: ${{ secrets.THARAA_KEY_ALIAS }}
+          THARAA_KEY_PASSWORD: ${{ secrets.THARAA_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/release/app-release.apk "Tharaa-1.0.${GITHUB_RUN_NUMBER}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tharaa-1.0.${{ github.run_number }}
+          path: tharaa/Tharaa-1.0.${{ github.run_number }}.apk
+          if-no-files-found: error
