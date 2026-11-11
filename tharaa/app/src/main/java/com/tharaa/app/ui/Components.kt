@@ -19,6 +19,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LinkOff
+import androidx.compose.material.icons.rounded.Mood
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.VolunteerActivism
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import com.tharaa.app.R
 import com.tharaa.app.domain.Fund
 import com.tharaa.app.domain.Warn
 
@@ -56,9 +68,77 @@ private val DarkColors = darkColorScheme(
     surfaceVariant = Color(0xFF252B27),
 )
 
+/** خط IBM Plex Sans Arabic: واضح بالأرقام وحديث بالحروف العربية. */
+val Plex = FontFamily(
+    Font(R.font.plex_arabic_regular, FontWeight.Normal),
+    Font(R.font.plex_arabic_medium, FontWeight.Medium),
+    Font(R.font.plex_arabic_semibold, FontWeight.SemiBold),
+    Font(R.font.plex_arabic_bold, FontWeight.Bold),
+)
+
+private fun plexTypography(): Typography {
+    val b = Typography()
+    fun androidx.compose.ui.text.TextStyle.p() = copy(fontFamily = Plex)
+    return Typography(
+        displayLarge = b.displayLarge.p(), displayMedium = b.displayMedium.p(), displaySmall = b.displaySmall.p(),
+        headlineLarge = b.headlineLarge.p(), headlineMedium = b.headlineMedium.p(), headlineSmall = b.headlineSmall.p(),
+        titleLarge = b.titleLarge.p(), titleMedium = b.titleMedium.p(), titleSmall = b.titleSmall.p(),
+        bodyLarge = b.bodyLarge.p(), bodyMedium = b.bodyMedium.p(), bodySmall = b.bodySmall.p(),
+        labelLarge = b.labelLarge.p(), labelMedium = b.labelMedium.p(), labelSmall = b.labelSmall.p(),
+    )
+}
+
+/** أيقونة موحّدة لكل صندوق بدل الإيموجي. */
+fun Fund.icon(): ImageVector = when (this) {
+    Fund.ESSENTIALS -> Icons.Rounded.Home
+    Fund.EMERGENCY -> Icons.Rounded.Shield
+    Fund.DEBT -> Icons.Rounded.LinkOff
+    Fund.INVESTMENT -> Icons.AutoMirrored.Rounded.TrendingUp
+    Fund.GOALS -> Icons.Rounded.Flag
+    Fund.EDUCATION -> Icons.Rounded.School
+    Fund.PERSONAL -> Icons.Rounded.Mood
+    Fund.GIVING -> Icons.Rounded.VolunteerActivism
+}
+
+@Composable
+fun FundIcon(f: Fund, size: androidx.compose.ui.unit.Dp = 22.dp, tint: Color = f.colorValue()) {
+    Icon(f.icon(), contentDescription = f.title, tint = tint, modifier = Modifier.size(size))
+}
+
+/** نموذج بلوحة من تحت بدل نافذة صغيرة: مساحة أكبر وأريح للكتابة. نفس معاملات AlertDialog. */
+@Composable
+fun FormSheet(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: (@Composable () -> Unit)? = null,
+) {
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismissRequest, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp),
+        ) {
+            ProvideTextStyle(MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) { title() }
+            Spacer(Modifier.height(14.dp))
+            Box(Modifier.weight(1f, fill = false)) { text() }
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                dismissButton?.invoke()
+                confirmButton()
+            }
+        }
+    }
+}
+
 @Composable
 fun TharaaTheme(content: @Composable () -> Unit) {
     MaterialTheme(
+        typography = plexTypography(),
         colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
         shapes = Shapes(
             small = RoundedCornerShape(10.dp),

@@ -157,13 +157,13 @@ class Repository(private val db: AppDatabase) {
         list.forEachIndexed { idx, g -> if (g.priority != idx + 1) dao.updateGoal(g.copy(priority = idx + 1)) }
     }
 
-    suspend fun createDefaultGoals() {
+    suspend fun createDefaultGoals(marriage: Double = 50_000.0, car: Double = 40_000.0) {
         if (dao.allGoals().isNotEmpty()) return
         val ts = now()
         dao.insertGoals(
             listOf(
-                Goal(name = "الزواج", emoji = "💍", target = 50_000.0, priority = 1, createdAt = ts),
-                Goal(name = "السيارة", emoji = "🚗", target = 40_000.0, priority = 2, createdAt = ts),
+                Goal(name = "الزواج", emoji = "💍", target = marriage, priority = 1, createdAt = ts),
+                Goal(name = "السيارة", emoji = "🚗", target = car, priority = 2, createdAt = ts),
                 Goal(name = "أول 10,000 ₪ بالمحفظة", emoji = "📈", target = 10_000.0, priority = 3, kind = GoalKind.PORTFOLIO, createdAt = ts),
             ),
         )

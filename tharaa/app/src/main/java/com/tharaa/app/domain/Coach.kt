@@ -34,9 +34,9 @@ object Coach {
     private fun monthsTo(remaining: Double, monthly: Double): Int? =
         if (monthly <= 0.5 || remaining <= 0) null else ceil(remaining / monthly).toInt()
 
-    private fun whenText(months: Int): String = when {
+    private fun whenText(months: Int, now: Long): String = when {
         months <= 1 -> "خلال شهر"
-        months < 12 -> "خلال $months شهور تقريباً (${monthTitle(monthKey(addMonths(System.currentTimeMillis(), months)))})"
+        months < 12 -> "خلال $months شهور تقريباً (${monthTitle(monthKey(addMonths(now, months)))})"
         else -> "خلال ${one(months / 12.0)} سنة تقريباً"
     }
 
@@ -92,14 +92,14 @@ object Coach {
         if (s.debtRemaining > 0.5) {
             val left = max(0.0, s.debtRemaining - s.bal(Fund.DEBT))
             val mm = monthsTo(left, m.monthlyDebt)
-            out += if (mm != null) Insight("⛓️", "بتتحرر من ديونك ${whenText(mm)}", "بوتيرتك الحالية (${money(m.monthlyDebt)} بالشهر). كل دخل إضافي بيقرّب الموعد.", 1)
+            out += if (mm != null) Insight("⛓️", "بتتحرر من ديونك ${whenText(mm, now)}", "بوتيرتك الحالية (${money(m.monthlyDebt)} بالشهر). كل دخل إضافي بيقرّب الموعد.", 1)
             else Insight("⛓️", "ديونك ما بتنقص", "عليك ${money(s.debtRemaining)} وما في سداد منتظم. سجّل دخلك واعتمد خطة المستشار.", 2)
         }
 
         // الهدف الأول
         s.goals.firstOrNull { it.goal.kind == GoalKind.SAVING && !it.goal.done && !it.reached }?.let { g ->
             val mm = monthsTo(g.remaining, m.monthlyGoals)
-            out += if (mm != null) Insight(g.goal.emoji, "«${g.goal.name}» ${whenText(mm)}", "باقي ${money(g.remaining)}، وبتوفرله ${money(m.monthlyGoals)} بالشهر.", 1)
+            out += if (mm != null) Insight(g.goal.emoji, "«${g.goal.name}» ${whenText(mm, now)}", "باقي ${money(g.remaining)}، وبتوفرله ${money(m.monthlyGoals)} بالشهر.", 1)
             else Insight(g.goal.emoji, "«${g.goal.name}» لسا ما بلش", "حصة الأهداف بتبدأ بعد الديون وأول درع طوارئ. كل خطوة بوقتها.", 1)
         }
 

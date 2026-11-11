@@ -44,7 +44,7 @@ import kotlin.math.floor
 @Composable
 fun CoachScreen(state: AppState, vm: AppViewModel) {
     var tab by remember { mutableIntStateOf(0) }
-    Screen(title = "المدرب 🧠") { pad ->
+    Screen(title = "المدرب") { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("تقريري") })
@@ -109,7 +109,7 @@ private fun Metric(label: String, value: String, unit: String, modifier: Modifie
     Column(modifier) {
         Text(label, color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
         Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1)
-        Text(unit, color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
+        Text(unit, color = Color.White.copy(alpha = 0.75f), fontSize = 10.sp)
     }
 }
 
@@ -194,7 +194,7 @@ private fun SmartInvestTab(state: AppState, vm: AppViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text("${l.symbol} · ${l.name}", fontWeight = FontWeight.Bold)
+                                Text("${l.symbol}، ${l.name}", fontWeight = FontWeight.Bold)
                                 Text(l.why, fontSize = 12.sp)
                                 if (p != null && p > 0) {
                                     val n = l.amount / p
@@ -239,7 +239,7 @@ private fun SmartInvestTab(state: AppState, vm: AppViewModel) {
                         }
                     }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        val quick = if (halal) listOf("SPUS", "HLAL", "UMMA", "AAPL", "MSFT") else listOf("VOO", "BRK-B", "AAPL", "KO", "QQQ", "TSLA")
+                        val quick = if (halal) listOf("SPUS", "HLAL", "UMMA") else listOf("VOO", "BRK-B", "AAPL", "KO", "QQQ", "TSLA")
                         quick.forEach { s -> AssistChip(onClick = { read(s) }, label = { Text(s) }) }
                     }
                     report?.let { r -> StockReportView(r, state) }
@@ -249,7 +249,7 @@ private fun SmartInvestTab(state: AppState, vm: AppViewModel) {
 
         // محافظ الأغنياء
         item { SectionTitle("محافظ وفلسفات الأغنياء") }
-        Investors.portfolios.filter { !halal || it.halal || it.holdings.isEmpty() || it.id == "buffett_simple" }.forEach { p ->
+        Investors.portfolios.filter { !halal || it.halal || it.holdings.isEmpty() }.forEach { p ->
             item {
                 PortfolioCard(p, open = openId == p.id, onToggle = { openId = if (openId == p.id) null else p.id }, onSymbol = { read(it) })
             }
@@ -265,7 +265,7 @@ private fun StockReportView(r: AppViewModel.StockReport, state: AppState) {
     }
     Column(Modifier.animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()
-        Text("${r.symbol}${r.name?.let { " · $it" } ?: ""}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text("${r.symbol}${r.name?.let { "، $it" } ?: ""}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Row(verticalAlignment = Alignment.Bottom) {
             Text("${qty(r.price)} ${r.currency}", fontSize = 22.sp, fontWeight = FontWeight.Bold)
             r.priceIls?.takeIf { r.currency != "ILS" }?.let { Text("  ≈ ${money(it)}", fontSize = 14.sp) }

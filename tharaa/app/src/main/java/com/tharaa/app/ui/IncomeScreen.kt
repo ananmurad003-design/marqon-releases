@@ -43,7 +43,7 @@ fun IncomeScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
         showAll = false
     }
 
-    Screen(title = "دخل جديد 💵", onBack = onBack) { pad ->
+    Screen(title = "دخل جديد", onBack = onBack) { pad ->
         Column(
             Modifier
                 .fillMaxSize()
@@ -68,7 +68,7 @@ fun IncomeScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
                 ) { Text("🧠 اقترح عليّ التقسيم", fontSize = 16.sp) }
                 if (state.avgMonthlyIncome > 0) {
                     Text(
-                        "متوسط دخلك الشهري: ${money(state.avgMonthlyIncome)} · دخلك هالشهر لحد الآن: ${money(state.monthIncome)}",
+                        "متوسط دخلك الشهري: ${money(state.avgMonthlyIncome)}، دخلك هالشهر لحد الآن: ${money(state.monthIncome)}",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -122,7 +122,7 @@ private fun AllocationRow(fund: Fund, value: String, percent: Double, reason: St
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(fund.emoji, fontSize = 22.sp)
+                FundIcon(fund, 26.dp)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text(fund.title, fontWeight = FontWeight.Bold)

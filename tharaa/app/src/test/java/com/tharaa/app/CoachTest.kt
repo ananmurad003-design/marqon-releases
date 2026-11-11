@@ -78,4 +78,18 @@ class CoachTest {
         assertTrue(r.size >= 3)
         assertNotNull(Coach.metrics(derive(raw, emptyList(), now), now))
     }
+
+    @Test fun rolloverKeepsUnpaidCommitments() {
+        val now = System.currentTimeMillis()
+        val last = com.tharaa.app.domain.addMonths(now, -1)
+        val c = Commitment(id = 9, name = "جمعية", amount = 300.0)
+        val settings = listOf(
+            Setting(K.COMMITMENTS, CommitmentCodec.encode(listOf(c))),
+            Setting(K.LAST_ROLLOVER, com.tharaa.app.domain.monthKey(last)),
+        )
+        val raw = RawData(txns = listOf(Txn(type = T.ALLOC, fund = Fund.ESSENTIALS.key, amount = 500.0, timestamp = last)))
+        val s = derive(raw, settings, now)
+        val move = s.pendingRollover.single { it.from == Fund.ESSENTIALS }
+        assertEquals(200.0, move.amount, 0.001) // 300 محجوزة للجمعية اللي ما انسدّت
+    }
 }

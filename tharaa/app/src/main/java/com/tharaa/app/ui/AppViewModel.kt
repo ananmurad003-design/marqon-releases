@@ -50,6 +50,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun say(text: String) { _messages.tryEmit(text) }
 
+    /** التبويب اللي لازم تفتح عليه شاشة «خطتي» (0 ديون، 1 أهداف، 2 التزامات). */
+    var planTabRequest: Int? = null
+
     private val _celebrations = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val celebrations: SharedFlow<String> = _celebrations
 
@@ -83,9 +86,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- البداية ----------
 
-    fun finishOnboarding() = launch {
-        repo.createDefaultGoals()
-        repo.setSettings(mapOf(K.ONBOARDED to "true", K.LAST_ROLLOVER to repo.currentMonth()))
+    fun finishOnboarding(debtTotal: Double = 0.0, commitment: Double = 0.0, commitmentDay: Int = 1, marriage: Double = 50_000.0, car: Double = 40_000.0) = launch {
+        repo.createDefaultGoals(marriage, car)
+        if (debtTotal > 0) repo.addDebt("ديوني", debtTotal, 0.0, "")
+        val extra = if (commitment > 0) {
+            val c = com.tharaa.app.domain.Commitment(id = System.currentTimeMillis(), name = "جمعية", amount = commitment, day = commitmentDay.coerceIn(1, 28))
+            mapOf(K.COMMITMENTS to com.tharaa.app.domain.CommitmentCodec.encode(listOf(c)))
+        } else emptyMap()
+        repo.setSettings(mapOf(K.ONBOARDED to "true", K.LAST_ROLLOVER to repo.currentMonth()) + extra)
     }
 
     private var rolloverRunning = false
@@ -237,7 +245,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun upsertCommitment(c: com.tharaa.app.domain.Commitment) = launch {
         val list = state.value.settings.commitments
-        val id = if (c.id == 0L) (list.maxOfOrNull { it.id } ?: 0L) + 1 else c.id
+        // معرّف فريد بالوقت حتى ما يورث التزام جديد دفعات التزام محذوف
+        val id = if (c.id == 0L) maxOf(System.currentTimeMillis(), (list.maxOfOrNull { it.id } ?: 0L) + 1) else c.id
         val item = c.copy(id = id)
         saveCommitments(if (list.any { it.id == id }) list.map { if (it.id == id) item else it } else list + item)
         say("انحفظ الالتزام ✅ وصار يتغطى أول شي من كل دخل")

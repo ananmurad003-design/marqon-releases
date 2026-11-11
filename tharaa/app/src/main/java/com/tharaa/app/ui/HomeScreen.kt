@@ -8,7 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,9 +37,9 @@ fun adviceFor(s: AppState): List<Advice> {
         out += Advice("💵", "سجّل أول دخل لهذا الشهر", "كل دفعة بتوصلك سجّلها فوراً قبل ما تصرف منها، وأنا بقسّمها.", "دخل جديد", "income")
     }
     if (next != null && debtCash >= next.remaining - 0.5) {
-        out += Advice("🎉", "بتقدر تخلّص «${next.debt.name}» الآن!", "صندوق الديون فيه ${money(debtCash)} والدين المتبقي ${money(next.remaining)}. سدّده واكسب أول انتصار.", "سدّد الآن", "plan")
+        out += Advice("🎉", "بتقدر تخلّص «${next.debt.name}» الآن!", "صندوق الديون فيه ${money(debtCash)} والدين المتبقي ${money(next.remaining)}. سدّده واكسب أول انتصار.", "سدّد الآن", "plan:0")
     } else if (next != null && debtCash >= 1) {
-        out += Advice("⛓️", "عندك ${money(debtCash)} لسداد الديون", "حسب طريقتك، ابدأ بـ «${next.debt.name}» (متبقي ${money(next.remaining)}). كل دفعة بتقرّبك من الحرية.", "سدّد", "plan")
+        out += Advice("⛓️", "عندك ${money(debtCash)} لسداد الديون", "حسب طريقتك، ابدأ بـ «${next.debt.name}» (متبقي ${money(next.remaining)}). كل دفعة بتقرّبك من الحرية.", "سدّد", "plan:0")
     } else if (next == null && debtCash >= 1) {
         out += Advice("🔁", "ما عليك ديون والصندوق فيه ${money(debtCash)}", "حوّل المبلغ للاستثمار حتى يشتغل لصالحك.", "افتح الصندوق", "fund/${Fund.DEBT.key}")
     }
@@ -56,7 +56,7 @@ fun adviceFor(s: AppState): List<Advice> {
     }
     val today = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH)
     s.commitments.filter { !it.isPaid && today >= it.c.day }.forEach { ci ->
-        out += Advice("📅", "موعد «${ci.c.name}»", "عليك ${money(ci.c.amount)} هالشهر. ادفعه من صندوق الأساسيات.", "ادفع", "plan")
+        out += Advice("📅", "موعد «${ci.c.name}»", "عليك ${money(ci.c.amount)} هالشهر. ادفعه من صندوق الأساسيات.", "ادفع", "plan:2")
     }
     s.settings.commitments.filter { it.kind == com.tharaa.app.domain.CommitmentKind.JAMEYA && it.receiveMonth == s.currentMonth }.forEach { c ->
         out += Advice(
@@ -66,13 +66,14 @@ fun adviceFor(s: AppState): List<Advice> {
         )
     }
     if (s.raw.debts.isEmpty() && s.phase == Phase.FOUNDATION) {
-        out += Advice("📋", "عليك ديون؟ سجّلها", "حتى أعطيها الأولوية الصح وأعملك خطة سداد.", "الديون", "plan")
+        out += Advice("📋", "عليك ديون؟ سجّلها", "حتى أعطيها الأولوية الصح وأعملك خطة سداد.", "الديون", "plan:0")
     }
     return out
 }
 
 @Composable
 fun HomeScreen(state: AppState, vm: AppViewModel, nav: NavHostController) {
+    var showAllAdvice by remember { mutableStateOf(false) }
     Screen(
         title = "ثراء",
         actions = { IconButton(onClick = { nav.navigate("settings") }) { Icon(Icons.Default.Settings, "الإعدادات") } },
@@ -110,26 +111,36 @@ fun HomeScreen(state: AppState, vm: AppViewModel, nav: NavHostController) {
                     Text("الامتلاء = اللي باقي من دخل الشهر", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
                 }
             }
-            Fund.entries.chunked(4).forEach { row ->
+            Fund.entries.chunked(3).forEach { row ->
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         row.forEach { f -> JarTile(f, state, Modifier.weight(1f)) { nav.navigate("fund/${f.key}") } }
+                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
-            adviceFor(state).forEach { a ->
+            val advice = adviceFor(state)
+            if (advice.isNotEmpty()) item { SectionTitle("ملاحظات المدرب") }
+            advice.take(if (showAllAdvice) advice.size else 2).forEach { a ->
                 item {
                     AdviceCard(a) {
                         val r = a.route ?: return@AdviceCard
-                        if (r in listOf("plan", "invest", "expenses")) nav.goTab(r) else nav.navigate(r)
+                        when {
+                            r.startsWith("plan:") -> { vm.planTabRequest = r.substringAfter(":").toIntOrNull(); nav.goTab("plan") }
+                            r in listOf("plan", "invest", "expenses", "coach") -> nav.goTab(r)
+                            else -> nav.navigate(r)
+                        }
                     }
                 }
+            }
+            if (advice.size > 2 && !showAllAdvice) {
+                item { TextButton(onClick = { showAllAdvice = true }) { Text("عرض كل الملاحظات (${advice.size})") } }
             }
             val goals = state.goals.filter { !it.goal.done }
             if (goals.isNotEmpty()) {
                 item { SectionTitle("أهدافك") }
                 item {
-                    Card(Modifier.fillMaxWidth().clickable { nav.goTab("plan") }, shape = RoundedCornerShape(20.dp)) {
+                    Card(Modifier.fillMaxWidth().clickable { vm.planTabRequest = 1; nav.goTab("plan") }, shape = RoundedCornerShape(20.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             goals.forEach { g ->
                                 Column {
@@ -190,7 +201,7 @@ private fun HeroCard(s: AppState) {
         Spacer(Modifier.height(12.dp))
         Text(
             "${monthTitle(s.currentMonth)}: دخلك ${money(s.monthIncome)}، مصاريفك ${money(s.monthExpenses)}",
-            color = Color.White.copy(alpha = 0.6f),
+            color = Color.White.copy(alpha = 0.78f),
             fontSize = 12.sp,
         )
     }
@@ -225,12 +236,19 @@ private fun JarTile(f: Fund, s: AppState, modifier: Modifier, onClick: () -> Uni
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Jar(fillOf(f, s), f.colorValue(), Modifier.width(54.dp).height(66.dp))
-            Text(f.emoji, fontSize = 18.sp, modifier = Modifier.padding(top = 10.dp))
+            Jar(fillOf(f, s), f.colorValue(), Modifier.width(62.dp).height(76.dp))
+            Box(
+                Modifier
+                    .padding(top = 12.dp)
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
+                contentAlignment = Alignment.Center,
+            ) { FundIcon(f, 18.dp) }
         }
         Spacer(Modifier.height(4.dp))
-        Text(f.title, fontSize = 11.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Text(money(s.bal(f)), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = f.colorValue(), maxLines = 1)
+        Text(f.title, fontSize = 12.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(money(s.bal(f)), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = f.colorValue(), maxLines = 1)
     }
 }
 

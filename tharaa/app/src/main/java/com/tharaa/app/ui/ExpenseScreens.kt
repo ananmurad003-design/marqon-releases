@@ -66,7 +66,7 @@ fun ExpenseScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
     val goalBalance = state.goals.firstOrNull { it.goal.id == goalId }?.saved ?: 0.0
     val enough = amount != null && amount > 0 && amount <= (if (fund == Fund.GOALS) goalBalance else available) + 0.004
 
-    Screen(title = "مصروف جديد 🧾", onBack = onBack) { pad ->
+    Screen(title = "مصروف جديد", onBack = onBack) { pad ->
         Column(
             Modifier
                 .fillMaxSize()
@@ -93,7 +93,7 @@ fun ExpenseScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
                     FilterChip(
                         selected = fund == f,
                         onClick = { fund = f; fundTouched = true },
-                        label = { Text("${f.emoji} ${f.title} (${money(state.bal(f))})") },
+                        leadingIcon = { FundIcon(f, 18.dp) }, label = { Text("${f.title} (${money(state.bal(f))})") },
                     )
                 }
             }
@@ -143,7 +143,7 @@ fun ExpensesScreen(state: AppState, vm: AppViewModel, nav: NavHostController) {
     val expenses = state.raw.txns.filter { it.type == T.EXPENSE && monthKey(it.timestamp) == month }
     val total = -expenses.sumOf { it.amount }
     val prevTotal = -state.raw.txns.filter { it.type == T.EXPENSE && monthKey(it.timestamp) == prevMonth }.sumOf { it.amount }
-    val byCat = expenses.groupBy { it.category }.mapValues { e -> -e.value.sumOf { it.amount } }.toList().sortedByDescending { it.second }
+    val byCat = expenses.groupBy { if (it.category?.startsWith("commitment") == true) "commitment" else it.category }.mapValues { e -> -e.value.sumOf { it.amount } }.toList().sortedByDescending { it.second }
     val incomes = state.raw.incomes.filter { monthKey(it.timestamp) == month }
 
     Screen(title = "المصاريف والدخل") { pad ->
@@ -201,7 +201,7 @@ fun ExpensesScreen(state: AppState, vm: AppViewModel, nav: NavHostController) {
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text("${c.emoji} ${c.title}", modifier = Modifier.weight(1f))
-                                        Text("${money(v)} · ${(v / total * 100).toInt()}%", fontWeight = FontWeight.Bold)
+                                        Text("${money(v)}، ${(v / total * 100).toInt()}%", fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -261,7 +261,7 @@ fun TxnRow(t: Txn, title: String, onDelete: (() -> Unit)? = null) {
             Column(Modifier.weight(1f)) {
                 Text(title, fontWeight = FontWeight.Medium)
                 val sub = listOfNotNull(dateTimeText(t.timestamp), Fund.of(t.fund).title, t.note.ifBlank { null })
-                Text(sub.joinToString(" · "), fontSize = 12.sp, maxLines = 2)
+                Text(sub.joinToString("، "), fontSize = 12.sp, maxLines = 2)
             }
             Text(moneySigned(t.amount), fontWeight = FontWeight.Bold, color = if (t.amount >= 0) Profit else Loss)
             if (onDelete != null) IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, "حذف") }
@@ -286,7 +286,7 @@ fun FundScreen(fund: Fund, state: AppState, vm: AppViewModel, onBack: () -> Unit
     var showAdjust by remember { mutableStateOf(false) }
     val txns = state.raw.txns.filter { it.fund == fund.key }
 
-    Screen(title = "${fund.emoji} ${fund.title}", onBack = onBack) { pad ->
+    Screen(title = fund.title, onBack = onBack) { pad ->
         LazyColumn(
             Modifier.fillMaxSize().padding(pad),
             contentPadding = PaddingValues(16.dp),
@@ -295,7 +295,11 @@ fun FundScreen(fund: Fund, state: AppState, vm: AppViewModel, onBack: () -> Unit
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("الرصيد", style = MaterialTheme.typography.bodyMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            FundIcon(fund, 22.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text("الرصيد", style = MaterialTheme.typography.bodyMedium)
+                        }
                         Text(money(state.bal(fund)), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = fund.colorValue())
                         if (fund == Fund.EMERGENCY) {
                             Spacer(Modifier.height(6.dp))
@@ -322,7 +326,7 @@ fun FundScreen(fund: Fund, state: AppState, vm: AppViewModel, onBack: () -> Unit
     if (showTransfer) TransferDialog(fund, state, vm) { showTransfer = false }
     if (showAdjust) {
         var text by remember { mutableStateOf(com.tharaa.app.domain.qty(state.bal(fund))) }
-        AlertDialog(
+        FormSheet(
             onDismissRequest = { showAdjust = false },
             title = { Text("تعديل رصيد ${fund.title}") },
             text = {
@@ -346,7 +350,7 @@ private fun TransferDialog(from: Fund, state: AppState, vm: AppViewModel, onDism
     var text by remember { mutableStateOf("") }
     val amount = parseAmount(text)
     val ok = amount != null && amount > 0 && amount <= state.bal(from) + 0.004 && to != from
-    AlertDialog(
+    FormSheet(
         onDismissRequest = onDismiss,
         title = { Text("تحويل من ${from.title}") },
         text = {
@@ -356,7 +360,7 @@ private fun TransferDialog(from: Fund, state: AppState, vm: AppViewModel, onDism
                 Text("إلى:")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Fund.entries.filter { it != from }.forEach { f ->
-                        FilterChip(selected = to == f, onClick = { to = f }, label = { Text("${f.emoji} ${f.title}") })
+                        FilterChip(selected = to == f, onClick = { to = f }, leadingIcon = { FundIcon(f, 18.dp) }, label = { Text("${f.title}") })
                     }
                 }
                 Advisor.transferWarning(from, to)?.let { WarnBox(com.tharaa.app.domain.Warn(it)) }

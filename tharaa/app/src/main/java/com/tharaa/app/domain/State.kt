@@ -226,7 +226,14 @@ fun derive(raw: RawData, settingsList: List<Setting>, now: Long = System.current
     val rollover = mutableListOf<RolloverMove>()
     val last = s.lastRollover
     if (last != null && last < thisMonth) {
-        val ess = balances[Fund.ESSENTIALS] ?: 0.0
+        // نحجز من الأساسيات قيمة الالتزامات اللي ما انسدّت الشهر الماضي
+        val prevMonth = monthKey(addMonths(now, -1))
+        val unpaidReserve = s.commitments.filter { it.activeIn(prevMonth) }.sumOf { c ->
+            val cat = commitmentCategory(c.id)
+            val paid = -expenses.filter { it.category == cat && monthKey(it.timestamp) == prevMonth }.sumOf { it.amount }
+            max(0.0, c.amount - paid)
+        }
+        val ess = max(0.0, (balances[Fund.ESSENTIALS] ?: 0.0) - unpaidReserve)
         if (s.rolloverEssentials && ess >= 1) {
             rollover += RolloverMove(Fund.ESSENTIALS, Fund.INVESTMENT, ess, "المتبقي من الأساسيات بيتحول لأصول بدل ما يضيع")
         }

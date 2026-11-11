@@ -47,7 +47,7 @@ fun InvestScreen(state: AppState, vm: AppViewModel) {
     val pnlPct = if (state.portfolioCost > 0) pnl / state.portfolioCost * 100 else 0.0
 
     Screen(
-        title = "الاستثمار 📈",
+        title = "الاستثمار",
         actions = {
             if (busy) CircularProgressIndicator(Modifier.size(22.dp).padding(end = 4.dp), strokeWidth = 2.dp)
             else IconButton(onClick = { vm.refreshPrices() }) { Icon(Icons.Default.Refresh, "تحديث الأسعار") }
@@ -69,7 +69,7 @@ fun InvestScreen(state: AppState, vm: AppViewModel) {
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(Modifier.height(8.dp))
-                        Text("التكلفة ${money(state.portfolioCost)} · نقد جاهز للاستثمار ${money(state.bal(Fund.INVESTMENT))}", color = Gold, fontSize = 13.sp)
+                        Text("التكلفة ${money(state.portfolioCost)}، نقد جاهز للاستثمار ${money(state.bal(Fund.INVESTMENT))}", color = Gold, fontSize = 13.sp)
                     }
                 }
             }
@@ -124,7 +124,7 @@ fun InvestScreen(state: AppState, vm: AppViewModel) {
     sellFor?.let { h -> SellDialog(h, vm) { sellFor = null } }
     valueFor?.let { h ->
         var text by remember(h.id) { mutableStateOf(qty(h.value())) }
-        AlertDialog(
+        FormSheet(
             onDismissRequest = { valueFor = null },
             title = { Text("قيمة ${h.name} الحالية") },
             text = { AmountField(text, { text = it }, "القيمة الإجمالية الآن") },
@@ -149,7 +149,7 @@ private fun HoldingCard(h: Holding, onBuy: () -> Unit, onSell: () -> Unit, onVal
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text(h.name, fontWeight = FontWeight.Bold, maxLines = 1)
-                    Text(listOfNotNull(h.symbol, "الكمية ${qty(h.quantity)}").joinToString(" · "), fontSize = 12.sp)
+                    Text(listOfNotNull(h.symbol, "الكمية ${qty(h.quantity)}").joinToString("، "), fontSize = 12.sp)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(money(value), fontWeight = FontWeight.Bold)
@@ -159,9 +159,9 @@ private fun HoldingCard(h: Holding, onBuy: () -> Unit, onSell: () -> Unit, onVal
             Spacer(Modifier.height(6.dp))
             val priceLine = when {
                 h.lastPriceIls != null -> "سعر الوحدة ${money(h.lastPriceIls)}" + (h.currency?.let { " (بالأصل $it)" } ?: "") +
-                    (if (h.updatedAt > 0) " · ${dateTimeText(h.updatedAt)}" else "")
+                    (if (h.updatedAt > 0) "، ${dateTimeText(h.updatedAt)}" else "")
                 h.symbol != null -> "ما تحدّث السعر بعد. اضغط 🔄 فوق"
-                else -> "قيمة يدوية" + (if (h.updatedAt > 0) " · ${dateTimeText(h.updatedAt)}" else "")
+                else -> "قيمة يدوية" + (if (h.updatedAt > 0) "، ${dateTimeText(h.updatedAt)}" else "")
             }
             Text(priceLine, fontSize = 12.sp)
             Text("التكلفة ${money(h.costIls)}", fontSize = 12.sp)
@@ -187,7 +187,7 @@ private fun BuyDialog(state: AppState, existing: Holding?, vm: AppViewModel, onD
     val enough = cost != null && cost <= cash + 0.004
     val ok = q != null && q > 0 && cost != null && cost > 0 && enough && (existing != null || name.isNotBlank() || symbol.isNotBlank())
 
-    AlertDialog(
+    FormSheet(
         onDismissRequest = onDismiss,
         title = { Text(if (existing != null) "شراء المزيد من ${existing.name}" else "شراء أصل جديد") },
         text = {
@@ -237,12 +237,12 @@ private fun SellDialog(h: Holding, vm: AppViewModel, onDismiss: () -> Unit) {
     val q = parseAmount(qtyText)
     val proceeds = parseAmount(proceedsText)
     val ok = q != null && q > 0 && q <= h.quantity + 0.0000001 && proceeds != null && proceeds >= 0
-    AlertDialog(
+    FormSheet(
         onDismissRequest = onDismiss,
         title = { Text("بيع ${h.name}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("عندك ${qty(h.quantity)} · القيمة الحالية ${money(h.value())}")
+                Text("عندك ${qty(h.quantity)}، القيمة الحالية ${money(h.value())}")
                 NumberField(qtyText, { qtyText = it }, "الكمية المباعة")
                 AmountField(proceedsText, { proceedsText = it }, "المبلغ اللي استلمته بالشيكل")
                 WarnBox(com.tharaa.app.domain.Warn("قبل ما تبيع: هل السبب خطة واضحة، ولا خوف من نزول السوق؟ المال بيرجع لصندوق الاستثمار، مش للمصروف."))

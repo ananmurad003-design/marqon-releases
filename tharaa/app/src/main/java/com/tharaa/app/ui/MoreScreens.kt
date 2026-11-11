@@ -92,7 +92,7 @@ fun SettingsScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
     }
     var essText by remember { mutableStateOf(if (s.essentialsBudget > 0) qty(s.essentialsBudget) else "") }
 
-    Screen(title = "الإعدادات ⚙️", onBack = onBack) { pad ->
+    Screen(title = "الإعدادات", onBack = onBack) { pad ->
         Column(
             Modifier
                 .fillMaxSize()
@@ -110,7 +110,7 @@ fun SettingsScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
             if (!s.isCustom) {
                 Text("المستشار بيغيّر النسب تلقائياً حسب مرحلتك (حالياً: ${state.phase.title}).", fontSize = 13.sp)
                 state.phase.weights.entries.sortedByDescending { it.value }.forEach { (f, p) ->
-                    Text("${f.emoji} ${f.title}: $p%", fontSize = 13.sp)
+                    Text("${f.title}: $p%", fontSize = 13.sp)
                 }
             } else {
                 CustomWeightsEditor(state, vm)
@@ -177,7 +177,7 @@ fun SettingsScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
             Text("كمان أندرويد بياخذ نسخة تلقائية من بيانات التطبيق لحساب Google تبعك (إذا النسخ الاحتياطي مفعّل بالجوال).", fontSize = 12.sp)
 
             HorizontalDivider()
-            Text("ثراء · إصدار ${appVersion()}", fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Text("ثراء، إصدار ${appVersion()}", fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -223,7 +223,7 @@ private fun CustomWeightsEditor(state: AppState, vm: AppViewModel) {
     Text("حدد نسبة كل صندوق (المجموع 100%). المستشار بيراجع اختياراتك:", fontSize = 13.sp)
     Fund.entries.forEach { f ->
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${f.emoji} ${f.title}", modifier = Modifier.weight(1f))
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) { FundIcon(f, 18.dp); Spacer(Modifier.width(6.dp)); Text(f.title) }
             Text("ينصح: ${state.phase.weights[f] ?: 0}%", fontSize = 11.sp, modifier = Modifier.padding(end = 8.dp))
             NumberField(weights[f] ?: "", { weights[f] = it }, "", modifier = Modifier.width(90.dp), suffix = "%")
         }

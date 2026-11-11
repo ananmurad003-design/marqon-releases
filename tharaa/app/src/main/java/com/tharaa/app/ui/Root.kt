@@ -1,5 +1,6 @@
 package com.tharaa.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,6 +12,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Psychology
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -23,14 +30,14 @@ import com.tharaa.app.domain.AppState
 import com.tharaa.app.domain.Fund
 import com.tharaa.app.domain.money
 
-private data class NavTab(val route: String, val label: String, val emoji: String)
+private data class NavTab(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
 private val tabs = listOf(
-    NavTab("home", "الرئيسية", "🏠"),
-    NavTab("expenses", "المصاريف", "🧾"),
-    NavTab("invest", "الاستثمار", "📈"),
-    NavTab("plan", "الديون والأهداف", "🎯"),
-    NavTab("coach", "المدرب", "🧠"),
+    NavTab("home", "الرئيسية", Icons.Rounded.Home),
+    NavTab("expenses", "المصاريف", Icons.AutoMirrored.Rounded.ReceiptLong),
+    NavTab("invest", "الاستثمار", Icons.AutoMirrored.Rounded.TrendingUp),
+    NavTab("plan", "خطتي", Icons.Rounded.Flag),
+    NavTab("coach", "المدرب", Icons.Rounded.Psychology),
 )
 
 fun NavHostController.goTab(route: String) = navigate(route) {
@@ -59,7 +66,7 @@ fun TharaaRoot(vm: AppViewModel = viewModel()) {
         return
     }
     if (!state.settings.onboarded) {
-        WelcomeScreen(onStart = { vm.finishOnboarding() })
+        WelcomeScreen(onStart = { d, c, day, m, car -> vm.finishOnboarding(d, c, day, m, car) })
         return
     }
 
@@ -77,8 +84,8 @@ fun TharaaRoot(vm: AppViewModel = viewModel()) {
                     NavigationBarItem(
                         selected = route == t.route,
                         onClick = { nav.goTab(t.route) },
-                        icon = { Text(t.emoji, fontSize = 20.sp) },
-                        label = { Text(t.label, fontSize = 10.sp, maxLines = 1) },
+                        icon = { Icon(t.icon, contentDescription = null) },
+                        label = { Text(t.label, fontSize = 11.sp, maxLines = 1) },
                     )
                 }
             }
@@ -113,7 +120,7 @@ private fun RolloverDialog(state: AppState, vm: AppViewModel) {
                 Text("خلص الشهر! حسب خطتك، المال اللي ما انصرف ما بيضل نايم:")
                 Spacer(Modifier.height(10.dp))
                 state.pendingRollover.forEach { m ->
-                    Text("${m.from.emoji} ${m.from.title} ← ${m.to.emoji} ${m.to.title}: ${money(m.amount)}", fontWeight = FontWeight.Bold)
+                    Text("${m.from.title} ← ${m.to.title}: ${money(m.amount)}", fontWeight = FontWeight.Bold)
                     Text(m.why, style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(6.dp))
                 }
@@ -125,53 +132,83 @@ private fun RolloverDialog(state: AppState, vm: AppViewModel) {
 }
 
 @Composable
-private fun WelcomeScreen(onStart: () -> Unit) {
+private fun WelcomeScreen(onStart: (debt: Double, commitment: Double, day: Int, marriage: Double, car: Double) -> Unit) {
+    var step by remember { mutableIntStateOf(0) }
+    var debt by remember { mutableStateOf("") }
+    var commitment by remember { mutableStateOf("") }
+    var day by remember { mutableStateOf("1") }
+    var marriage by remember { mutableStateOf("50000") }
+    var car by remember { mutableStateOf("40000") }
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(24.dp))
-            Text("👑", fontSize = 64.sp)
-            Text("أهلاً بك في ثراء", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "أنا مستشارك ومعلمك المالي. كل ما يدخلك مال، سجّله وأنا بقسّمه على صناديقك " +
-                    "حسب أفكار أشهر كتب الثراء، وبتغيّر الخطة كل ما تتقدم.",
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(20.dp))
-            listOf(
-                "1️⃣" to "التأسيس: طوارئ مبدئي + هجوم على الديون",
-                "2️⃣" to "التحرر من الديون بطريقة كرة الثلج",
-                "3️⃣" to "درع الأمان: طوارئ 4 شهور + أهدافك",
-                "4️⃣" to "بناء الثروة: استثمار وأصول",
-            ).forEach { (n, t) ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(n, fontSize = 22.sp)
-                    Spacer(Modifier.width(10.dp))
-                    Text(t)
+            // مؤشر الخطوات
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(3) { i ->
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(4.dp)
+                            .background(if (i <= step) Gold else MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.RoundedCornerShape(2.dp)),
+                    )
                 }
             }
-            Spacer(Modifier.height(16.dp))
-            InfoCard(
-                "🏛️", "القاعدة الذهبية",
-                "«ادفع لنفسك أولاً»: 10% على الأقل من كل دخل للاستثمار، مهما كانت مرحلتك.",
-                container = MaterialTheme.colorScheme.secondaryContainer,
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "جهّزتلك أهدافك: الزواج 💍، السيارة 🚗، وأول 10,000 ₪ بالمحفظة 📈. بتقدر تعدّل المبالغ من شاشة الأهداف.",
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(24.dp))
-            Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text("يلا نبدأ الطريق 🚀", fontSize = 17.sp)
+            Spacer(Modifier.height(32.dp))
+            when (step) {
+                0 -> {
+                    Text("ثراء", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(12.dp))
+                    Text("كل ما يدخلك مال، بقسّمه على جرارك حسب قواعد أشهر كتب الثراء، وبتتغير الخطة مع تقدّمك.", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(24.dp))
+                    PhaseRoad(com.tharaa.app.domain.Phase.FOUNDATION, onDark = false)
+                    Spacer(Modifier.height(24.dp))
+                    Text("القاعدة الذهبية: 10% على الأقل من كل دخل للاستثمار، قبل أي مصروف.", style = MaterialTheme.typography.bodyLarge)
+                }
+                1 -> {
+                    Text("خلّيني أعرف وضعك", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("اتركها فاضية إذا ما في. بتقدر تعدّل التفاصيل بعدين من «خطتي».", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(20.dp))
+                    AmountField(debt, { debt = it }, "مجموع ديونك")
+                    Spacer(Modifier.height(12.dp))
+                    AmountField(commitment, { commitment = it }, "جمعية أو التزام شهري ثابت")
+                    Spacer(Modifier.height(12.dp))
+                    NumberField(day, { day = it }, "يوم الدفع بالشهر")
+                }
+                else -> {
+                    Text("أهدافك الكبيرة", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("هدف مكتوب بمبلغ واضح بيتحقق أسرع. عدّل المبالغ لتناسبك.", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(20.dp))
+                    AmountField(marriage, { marriage = it }, "الزواج")
+                    Spacer(Modifier.height(12.dp))
+                    AmountField(car, { car = it }, "السيارة")
+                    Spacer(Modifier.height(12.dp))
+                    Text("وبعدهم: أول 10,000 ₪ بمحفظة الاستثمار.", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Spacer(Modifier.height(32.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (step > 0) OutlinedButton(onClick = { step-- }, modifier = Modifier.height(52.dp)) { Text("رجوع") }
+                Button(
+                    onClick = {
+                        if (step < 2) step++
+                        else onStart(
+                            com.tharaa.app.domain.parseAmount(debt) ?: 0.0,
+                            com.tharaa.app.domain.parseAmount(commitment) ?: 0.0,
+                            day.toIntOrNull() ?: 1,
+                            com.tharaa.app.domain.parseAmount(marriage)?.takeIf { it > 0 } ?: 50_000.0,
+                            com.tharaa.app.domain.parseAmount(car)?.takeIf { it > 0 } ?: 40_000.0,
+                        )
+                    },
+                    modifier = Modifier.weight(1f).height(52.dp),
+                ) { Text(if (step < 2) "التالي" else "يلا نبدأ", fontSize = 16.sp) }
             }
         }
     }

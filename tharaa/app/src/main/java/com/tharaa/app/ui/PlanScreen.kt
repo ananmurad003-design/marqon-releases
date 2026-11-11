@@ -31,8 +31,10 @@ import com.tharaa.app.domain.qty
 
 @Composable
 fun PlanScreen(state: AppState, vm: AppViewModel) {
-    var tab by remember { mutableIntStateOf(if (state.raw.debts.any() && state.debtRemaining > 0) 0 else 1) }
-    Screen(title = "خطتي 🎯") { pad ->
+    var tab by remember {
+        mutableIntStateOf(vm.planTabRequest?.also { vm.planTabRequest = null } ?: if (state.raw.debts.any() && state.debtRemaining > 0) 0 else 1)
+    }
+    Screen(title = "خطتي") { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("⛓️ الديون") })
@@ -113,7 +115,7 @@ private fun DebtsTab(state: AppState, vm: AppViewModel) {
                                 }
                                 Text(
                                     "متبقي ${money(d.remaining)} من ${money(d.debt.total)}" +
-                                        (if (d.debt.interestRate > 0) " · فائدة ${qty(d.debt.interestRate)}%" else ""),
+                                        (if (d.debt.interestRate > 0) "، فائدة ${qty(d.debt.interestRate)}%" else ""),
                                     fontSize = 12.sp,
                                 )
                             }
@@ -147,7 +149,7 @@ private fun DebtDialog(existing: Debt?, vm: AppViewModel, onDismiss: () -> Unit)
     var total by remember { mutableStateOf(existing?.total?.let { qty(it) } ?: "") }
     var rate by remember { mutableStateOf(existing?.interestRate?.takeIf { it > 0 }?.let { qty(it) } ?: "") }
     val t = parseAmount(total)
-    AlertDialog(
+    FormSheet(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "دين جديد" else "تعديل الدين") },
         text = {
@@ -176,7 +178,7 @@ private fun PayDialog(d: DebtInfo, state: AppState, vm: AppViewModel, onDismiss:
     var text by remember { mutableStateOf(qty(minOf(d.remaining, debtCash).coerceAtLeast(0.0))) }
     val amount = parseAmount(text)
     val ok = amount != null && amount > 0 && amount <= state.bal(from) + 0.004 && amount <= d.remaining + 0.004
-    AlertDialog(
+    FormSheet(
         onDismissRequest = onDismiss,
         title = { Text("سداد: ${d.debt.name}") },
         text = {
@@ -186,7 +188,7 @@ private fun PayDialog(d: DebtInfo, state: AppState, vm: AppViewModel, onDismiss:
                 Text("من صندوق:")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(Fund.DEBT, Fund.PERSONAL, Fund.EMERGENCY).forEach { f ->
-                        FilterChip(selected = from == f, onClick = { from = f }, label = { Text("${f.emoji} ${f.title} (${money(state.bal(f))})") })
+                        FilterChip(selected = from == f, onClick = { from = f }, leadingIcon = { FundIcon(f, 18.dp) }, label = { Text("${f.title} (${money(state.bal(f))})") })
                     }
                 }
                 if (from == Fund.PERSONAL) WarnBox(com.tharaa.app.domain.Warn("قرار قوي! التضحية بالمصروف لتصفير الدين أسرع 💪", positive = true))
@@ -277,7 +279,7 @@ private fun GoalDialog(existing: GoalInfo?, vm: AppViewModel, onDismiss: () -> U
     var target by remember { mutableStateOf(g?.target?.let { qty(it) } ?: "") }
     var kind by remember { mutableStateOf(g?.kind ?: GoalKind.SAVING) }
     val t = parseAmount(target)
-    AlertDialog(
+    FormSheet(
         onDismissRequest = onDismiss,
         title = { Text(if (g == null) "هدف جديد" else "تعديل الهدف") },
         text = {
@@ -351,7 +353,7 @@ private fun CommitmentsTab(state: AppState, vm: AppViewModel) {
                             Column(Modifier.weight(1f)) {
                                 Text(c.name, fontWeight = FontWeight.Bold)
                                 Text(
-                                    "${money(c.amount)} كل شهر · يوم ${c.day}" + (c.endMonth?.let { " · لحد ${com.tharaa.app.domain.monthTitle(it)}" } ?: ""),
+                                    "${money(c.amount)} كل شهر، يوم ${c.day}" + (c.endMonth?.let { "، لحد ${com.tharaa.app.domain.monthTitle(it)}" } ?: ""),
                                     fontSize = 12.sp,
                                 )
                             }
@@ -387,7 +389,7 @@ private fun CommitmentsTab(state: AppState, vm: AppViewModel) {
     payFor?.let { c ->
         var from by remember(c.id) { mutableStateOf(if (state.bal(Fund.ESSENTIALS) >= c.amount) Fund.ESSENTIALS else Fund.PERSONAL) }
         val ok = state.bal(from) >= c.amount - 0.004
-        AlertDialog(
+        FormSheet(
             onDismissRequest = { payFor = null },
             title = { Text("دفع ${c.name}: ${money(c.amount)}") },
             text = {
@@ -395,7 +397,7 @@ private fun CommitmentsTab(state: AppState, vm: AppViewModel) {
                     Text("من صندوق:")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(Fund.ESSENTIALS, Fund.PERSONAL, Fund.EMERGENCY).forEach { f ->
-                            FilterChip(selected = from == f, onClick = { from = f }, label = { Text("${f.emoji} ${f.title} (${money(state.bal(f))})") })
+                            FilterChip(selected = from == f, onClick = { from = f }, leadingIcon = { FundIcon(f, 18.dp) }, label = { Text("${f.title} (${money(state.bal(f))})") })
                         }
                     }
                     if (!ok) WarnBox(com.tharaa.app.domain.Warn("الرصيد ما بيكفي. سجّل دخلك أول، والمستشار بيحجز الالتزام تلقائياً.", severe = true))
@@ -425,13 +427,15 @@ private fun CommitmentDialog(existing: com.tharaa.app.domain.Commitment?, state:
     var amount by remember { mutableStateOf(existing?.amount?.let { qty(it) } ?: "") }
     var day by remember { mutableStateOf(existing?.day?.toString() ?: "1") }
     var members by remember { mutableStateOf(existing?.members?.takeIf { it > 0 }?.toString() ?: "") }
-    var receiveIn by remember { mutableStateOf(monthsFromNow(existing?.receiveMonth)) }
-    var remaining by remember { mutableStateOf(existing?.endMonth?.let { m -> monthsFromNow(m).toIntOrNull()?.plus(1)?.toString() } ?: "") }
+    val receiveInitial = remember { monthsFromNow(existing?.receiveMonth) }
+    val remainingInitial = remember { existing?.endMonth?.let { m -> monthsFromNow(m).toIntOrNull()?.plus(1)?.toString() } ?: "" }
+    var receiveIn by remember { mutableStateOf(receiveInitial) }
+    var remaining by remember { mutableStateOf(remainingInitial) }
     val a = parseAmount(amount)
     val d = day.toIntOrNull()
     val ok = a != null && a > 0 && d != null && d in 1..28
 
-    AlertDialog(
+    FormSheet(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "التزام شهري جديد" else "تعديل الالتزام") },
         text = {
@@ -460,9 +464,14 @@ private fun CommitmentDialog(existing: com.tharaa.app.domain.Commitment?, state:
         },
         confirmButton = {
             TextButton(enabled = ok, onClick = {
-                val recv = receiveIn.toIntOrNull()?.takeIf { kind == com.tharaa.app.domain.CommitmentKind.JAMEYA }
-                    ?.let { com.tharaa.app.domain.monthKey(com.tharaa.app.domain.addMonths(now, it)) }
-                val end = remaining.toIntOrNull()?.takeIf { it > 0 }?.let { com.tharaa.app.domain.monthKey(com.tharaa.app.domain.addMonths(now, it - 1)) }
+                // إذا ما تغيّر الحقل، نحافظ على الشهر الأصلي (حتى لو صار بالماضي)
+                val recv = when {
+                    kind != com.tharaa.app.domain.CommitmentKind.JAMEYA -> null
+                    existing != null && receiveIn == receiveInitial -> existing.receiveMonth
+                    else -> receiveIn.toIntOrNull()?.let { com.tharaa.app.domain.monthKey(com.tharaa.app.domain.addMonths(now, it)) }
+                }
+                val end = if (existing != null && remaining == remainingInitial) existing.endMonth
+                else remaining.toIntOrNull()?.takeIf { it > 0 }?.let { com.tharaa.app.domain.monthKey(com.tharaa.app.domain.addMonths(now, it - 1)) }
                 vm.upsertCommitment(
                     com.tharaa.app.domain.Commitment(
                         id = existing?.id ?: 0L,
