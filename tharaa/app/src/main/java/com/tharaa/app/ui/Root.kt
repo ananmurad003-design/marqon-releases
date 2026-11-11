@@ -96,7 +96,17 @@ fun TharaaRoot(vm: AppViewModel = viewModel()) {
             composable("expenses") { ExpensesScreen(state, vm, nav) }
             composable("invest") { InvestScreen(state, vm) }
             composable("plan") { PlanScreen(state, vm) }
-            composable("coach") { CoachScreen(state, vm) }
+            composable("coach") { CoachScreen(state, vm, onLesson = { nav.navigate("lesson/$it") }, onSummaries = { nav.navigate("summaries") }) }
+            composable("lesson/{n}") { b ->
+                LessonScreen(
+                    day = b.arguments?.getString("n")?.toIntOrNull() ?: 1,
+                    state = state,
+                    vm = vm,
+                    onBack = { nav.popBackStack() },
+                    onNext = { nav.popBackStack(); nav.navigate("lesson/$it") },
+                )
+            }
+            composable("summaries") { SummariesScreen(onBack = { nav.popBackStack() }) }
             composable("income") { IncomeScreen(state, vm, onBack = { nav.popBackStack() }) }
             composable("expense") { ExpenseScreen(state, vm, onBack = { nav.popBackStack() }) }
             composable("settings") { SettingsScreen(state, vm, onBack = { nav.popBackStack() }) }

@@ -104,6 +104,8 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             dueToday.isNotEmpty() -> "📅 موعد التزام اليوم" to dueToday.joinToString("، ") { "${it.name}: ${money(it.amount)}" } + ". ادفعه وسجّله من خطتي ← التزامات."
             day == 1 -> "📅 شهر جديد، بداية جديدة" to "افتح ثراء وراجع ترحيل نهاية الشهر. المتبقي من صناديقك بيستنّى يشتغل لصالحك."
             count == 0 -> "📝 سجّلت مصاريف اليوم؟" to "دقيقة وحدة بتفرق. ${Lessons.tipOfTheDay()}"
+            com.tharaa.app.domain.CourseProgress(s.courseDone, s.courseLastDay).let { it.todayOpen && !it.finished } ->
+                "🎓 درس اليوم جاهز" to "درس جديد بمنهج الثراء بيستناك بتبويب المدرب، وفيه مهمة عملية لليوم."
             personal in 0.01..50.0 -> "⚠️ مصروفك قرّب يخلص" to "باقي ${money(personal)} بمصروفك الشخصي. خفّف لحد الدخل الجاي 💪"
             else -> "💡 نصيحة اليوم" to Lessons.tipOfTheDay()
         }

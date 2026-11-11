@@ -42,19 +42,19 @@ import com.tharaa.app.domain.suggestPlan
 import kotlin.math.floor
 
 @Composable
-fun CoachScreen(state: AppState, vm: AppViewModel) {
+fun CoachScreen(state: AppState, vm: AppViewModel, onLesson: (Int) -> Unit = {}, onSummaries: () -> Unit = {}) {
     var tab by remember { mutableIntStateOf(0) }
     Screen(title = "المدرب") { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("تقريري") })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("الاستثمار الذكي") })
-                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("الدروس") })
+                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("المنهج") })
             }
             when (tab) {
                 0 -> ReportTab(state)
                 1 -> SmartInvestTab(state, vm)
-                else -> LessonsList(Modifier.fillMaxSize())
+                else -> CourseList(state, onLesson, onSummaries)
             }
         }
     }

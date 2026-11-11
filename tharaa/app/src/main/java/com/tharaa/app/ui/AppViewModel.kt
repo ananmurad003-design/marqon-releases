@@ -238,6 +238,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ---------- منهج الثراء ----------
+
+    fun completeLesson(day: Int) = launch {
+        val s = state.value.settings
+        if (day in s.courseDone) return@launch
+        val done = s.courseDone + day
+        repo.setSettings(
+            mapOf(
+                K.COURSE_DONE to done.sorted().joinToString(","),
+                K.COURSE_LAST to com.tharaa.app.domain.startOfDay(System.currentTimeMillis()).toString(),
+            ),
+        )
+        val unitDone = com.tharaa.app.domain.Course.days.filter { it.unit == com.tharaa.app.domain.Course.of(day)?.unit }.all { it.day in done }
+        when {
+            done.size >= com.tharaa.app.domain.Course.days.size -> celebrate("خلّصت منهج الثراء كامل! 🎓\nالحين صار عندك الخريطة. الباقي استمرار")
+            unitDone -> celebrate("خلّصت وحدة «${com.tharaa.app.domain.Course.units[com.tharaa.app.domain.Course.of(day)?.unit ?: 0]}»!")
+            else -> say("أحسنت ✅ الدرس الجاي بينفتح بكرة")
+        }
+    }
+
     // ---------- الالتزامات الشهرية ----------
 
     private suspend fun saveCommitments(list: List<com.tharaa.app.domain.Commitment>) =

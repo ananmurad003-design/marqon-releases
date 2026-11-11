@@ -26,6 +26,8 @@ object K {
     const val NO_SPEND = "noSpendDays"
     const val COMMITMENTS = "commitments"
     const val HALAL = "halalOnly"
+    const val COURSE_DONE = "courseDone"
+    const val COURSE_LAST = "courseLastDay"
     fun weight(f: Fund) = "w_${f.key}"
 }
 
@@ -46,6 +48,8 @@ data class Settings(
     val noSpendDays: Set<Long> = emptySet(),
     val commitments: List<Commitment> = emptyList(),
     val halalOnly: Boolean = false,
+    val courseDone: Set<Int> = emptySet(),
+    val courseLastDay: Long = 0,
 ) {
     val isCustom get() = planMode == "custom"
 
@@ -73,6 +77,8 @@ data class Settings(
                 onboarded = m[K.ONBOARDED]?.toBooleanStrictOrNull() ?: false,
                 commitments = CommitmentCodec.decode(m[K.COMMITMENTS]),
                 halalOnly = m[K.HALAL]?.toBooleanStrictOrNull() ?: false,
+                courseDone = m[K.COURSE_DONE].orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() }.toSet(),
+                courseLastDay = m[K.COURSE_LAST]?.toLongOrNull() ?: 0,
                 noSpendDays = m[K.NO_SPEND].orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet(),
             )
         }
