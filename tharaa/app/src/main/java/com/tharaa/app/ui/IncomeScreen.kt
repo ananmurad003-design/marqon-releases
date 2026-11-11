@@ -29,6 +29,7 @@ fun IncomeScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
     var plan by remember { mutableStateOf<Allocation?>(null) }
     val edits = remember { mutableStateMapOf<Fund, String>() }
     var showAll by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
 
     val amount = parseAmount(amountText)
 
@@ -107,8 +108,8 @@ fun IncomeScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
 
                 TextInput(note, { note = it }, "ملاحظة (اختياري)")
                 Button(
-                    onClick = { vm.saveIncome(amount, source, note, p, lines, onDone = onBack) },
-                    enabled = warnings.none { it.severe },
+                    onClick = { saving = true; vm.saveIncome(amount, source, note, p, lines, onDone = onBack) },
+                    enabled = !saving && warnings.none { it.severe },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) { Text("✅ اعتماد التقسيم", fontSize = 16.sp) }
             }

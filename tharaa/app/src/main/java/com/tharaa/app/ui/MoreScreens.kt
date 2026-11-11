@@ -28,6 +28,7 @@ import com.tharaa.app.domain.qty
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun LessonsScreen() {
@@ -121,10 +122,12 @@ fun SettingsScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
             Text("اتركها فاضية إذا ما عندك التزامات ثابتة حالياً. لما تحددها، بتتغطى أول شي من كل دخل.", fontSize = 12.sp)
             OutlinedButton(onClick = { vm.setSetting(K.ESSENTIALS_BUDGET, (parseAmount(essText) ?: 0.0).toString()) }) { Text("حفظ الميزانية") }
 
-            Text("حجم صندوق الطوارئ: ${s.emergencyMonths} شهور (${money(state.emergencyTarget)})", fontWeight = FontWeight.Bold)
+            var months by remember(s.emergencyMonths) { mutableFloatStateOf(s.emergencyMonths.toFloat()) }
+            Text("حجم صندوق الطوارئ: ${months.roundToInt()} شهور (${money(state.monthlyBase * months.roundToInt())})", fontWeight = FontWeight.Bold)
             Slider(
-                value = s.emergencyMonths.toFloat(),
-                onValueChange = { vm.setSetting(K.EMERGENCY_MONTHS, it.toInt().toString()) },
+                value = months,
+                onValueChange = { months = it },
+                onValueChangeFinished = { vm.setSetting(K.EMERGENCY_MONTHS, months.roundToInt().toString()) },
                 valueRange = 3f..6f,
                 steps = 2,
             )
@@ -139,10 +142,12 @@ fun SettingsScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
             SectionTitle("التذكيرات")
             SwitchRow("تذكير يومي لتسجيل المصاريف + نصيحة", s.remindersOn) { vm.setSetting(K.REMINDERS, it.toString()) }
             if (s.remindersOn) {
-                Text("الساعة: ${s.reminderHour}:00", fontWeight = FontWeight.Bold)
+                var hour by remember(s.reminderHour) { mutableFloatStateOf(s.reminderHour.toFloat()) }
+                Text("الساعة: ${hour.roundToInt()}:00", fontWeight = FontWeight.Bold)
                 Slider(
-                    value = s.reminderHour.toFloat(),
-                    onValueChange = { vm.setSetting(K.REMINDER_HOUR, it.toInt().toString()) },
+                    value = hour,
+                    onValueChange = { hour = it },
+                    onValueChangeFinished = { vm.setSetting(K.REMINDER_HOUR, hour.roundToInt().toString()) },
                     valueRange = 8f..23f,
                     steps = 14,
                 )

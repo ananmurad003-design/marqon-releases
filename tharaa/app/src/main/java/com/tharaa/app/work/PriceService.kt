@@ -43,13 +43,18 @@ object PriceService {
 
     /** يحوّل السعر للشيكل. ILA = أغورة (بورصة تل أبيب). */
     suspend fun toIls(price: Double, currency: String, cache: MutableMap<String, Double>): Double? {
-        val cur = currency.uppercase()
+        // عملات بالوحدة الصغرى: ILA أغورة، GBp/GBX بنس، ZAc سنت جنوب أفريقي
+        val (cur, p) = when (currency) {
+            "ILA" -> "ILS" to price / 100.0
+            "GBp", "GBX" -> "GBP" to price / 100.0
+            "ZAc" -> "ZAR" to price / 100.0
+            else -> currency.uppercase() to price
+        }
         return when (cur) {
-            "ILS" -> price
-            "ILA" -> price / 100.0
+            "ILS" -> p
             else -> {
                 val rate = cache[cur] ?: quote("${cur}ILS=X")?.price?.also { cache[cur] = it }
-                rate?.let { price * it }
+                rate?.let { p * it }
             }
         }
     }

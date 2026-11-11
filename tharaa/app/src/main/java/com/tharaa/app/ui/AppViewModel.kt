@@ -64,10 +64,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.setSettings(mapOf(K.ONBOARDED to "true", K.LAST_ROLLOVER to repo.currentMonth()))
     }
 
-    fun applyRollover() = launch {
-        val s = state.value
-        repo.applyRollover(s.pendingRollover, s.currentMonth, s.goals)
-        say("تم ترحيل نهاية الشهر ✅ مالك صار يشتغل لصالحك")
+    private var rolloverRunning = false
+
+    fun applyRollover() {
+        if (rolloverRunning) return
+        rolloverRunning = true
+        viewModelScope.launch {
+            try {
+                val s = state.value
+                if (s.pendingRollover.isNotEmpty()) {
+                    repo.applyRollover(s.pendingRollover, s.currentMonth, s.goals)
+                    say("تم ترحيل نهاية الشهر ✅ مالك صار يشتغل لصالحك")
+                }
+            } catch (e: Exception) {
+                say("صار خطأ: ${e.message ?: e.javaClass.simpleName}")
+            } finally {
+                rolloverRunning = false
+            }
+        }
     }
 
     fun skipRollover() = launch { repo.setSetting(K.LAST_ROLLOVER, state.value.currentMonth) }

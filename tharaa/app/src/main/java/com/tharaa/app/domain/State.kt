@@ -132,10 +132,13 @@ fun orderDebts(list: List<DebtInfo>, strategy: String): List<DebtInfo> {
 
 fun derive(raw: RawData, settingsList: List<Setting>, now: Long = System.currentTimeMillis()): AppState {
     val s = Settings.from(settingsList)
-    val balances = Fund.entries.associateWith { f -> round2(raw.txns.filter { it.fund == f.key }.sumOf { it.amount }) }
+    val byFund = raw.txns.groupBy { it.fund }
+    val balances = Fund.entries.associateWith { f -> round2(byFund[f.key].orEmpty().sumOf { it.amount }) }
+    val paidByDebt = raw.txns.filter { it.type == T.DEBT_PAY && it.debtId != null }.groupBy { it.debtId }
+    val savedByGoal = raw.txns.filter { it.goalId != null }.groupBy { it.goalId }
 
     val debtInfos = raw.debts.map { d ->
-        DebtInfo(d, -raw.txns.filter { it.type == T.DEBT_PAY && it.debtId == d.id }.sumOf { it.amount })
+        DebtInfo(d, -paidByDebt[d.id].orEmpty().sumOf { it.amount })
     }
     val orderedDebts = orderDebts(debtInfos, s.debtStrategy)
     val debtRemaining = debtInfos.sumOf { it.remaining }
@@ -171,7 +174,7 @@ fun derive(raw: RawData, settingsList: List<Setting>, now: Long = System.current
     val portfolioForGoals = portfolioValue + (balances[Fund.INVESTMENT] ?: 0.0)
     val goalInfos = raw.goals.sortedWith(compareBy({ it.priority }, { it.id })).map { g ->
         val saved = if (g.kind == GoalKind.PORTFOLIO) portfolioForGoals
-        else raw.txns.filter { it.goalId == g.id }.sumOf { it.amount }
+        else savedByGoal[g.id].orEmpty().sumOf { it.amount }
         GoalInfo(g, saved)
     }
     val savingOpen = goalInfos.filter { it.goal.kind == GoalKind.SAVING && !it.goal.done && it.goal.target > 0 }

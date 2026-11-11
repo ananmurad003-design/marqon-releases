@@ -23,14 +23,14 @@ import com.tharaa.app.domain.AppState
 import com.tharaa.app.domain.Fund
 import com.tharaa.app.domain.money
 
-private data class Tab(val route: String, val label: String, val emoji: String)
+private data class NavTab(val route: String, val label: String, val emoji: String)
 
 private val tabs = listOf(
-    Tab("home", "الرئيسية", "🏠"),
-    Tab("expenses", "المصاريف", "🧾"),
-    Tab("invest", "الاستثمار", "📈"),
-    Tab("plan", "الديون والأهداف", "🎯"),
-    Tab("lessons", "المعلم", "🎓"),
+    NavTab("home", "الرئيسية", "🏠"),
+    NavTab("expenses", "المصاريف", "🧾"),
+    NavTab("invest", "الاستثمار", "📈"),
+    NavTab("plan", "الديون والأهداف", "🎯"),
+    NavTab("lessons", "المعلم", "🎓"),
 )
 
 fun NavHostController.goTab(route: String) = navigate(route) {

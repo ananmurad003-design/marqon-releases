@@ -42,6 +42,7 @@ fun ExpenseScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
     var fundTouched by remember { mutableStateOf(false) }
     var goalId by remember { mutableStateOf(state.goals.firstOrNull { it.goal.kind == GoalKind.SAVING }?.goal?.id) }
     var note by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
     val amount = parseAmount(amountText)
 
     // اختيار ذكي للصندوق: صندوق التصنيف، وإذا ما فيه رصيد كافي، مصروفك
@@ -112,9 +113,10 @@ fun ExpenseScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
             TextInput(note, { note = it }, "ملاحظة (اختياري)")
             Button(
                 onClick = {
+                    saving = true
                     vm.addExpense(amount ?: 0.0, category.key, fund, note, if (fund == Fund.GOALS) goalId else null, onDone = onBack)
                 },
-                enabled = enough,
+                enabled = enough && !saving,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) { Text("سجّل المصروف", fontSize = 16.sp) }
         }
@@ -290,7 +292,7 @@ fun FundScreen(fund: Fund, state: AppState, vm: AppViewModel, onBack: () -> Unit
                         Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (fund != Fund.GOALS) Button(onClick = { showTransfer = true }) { Text("🔁 تحويل") }
-                            OutlinedButton(onClick = { showAdjust = true }) { Text("✏️ تعديل الرصيد") }
+                            if (fund != Fund.GOALS) OutlinedButton(onClick = { showAdjust = true }) { Text("✏️ تعديل الرصيد") }
                         }
                     }
                 }
