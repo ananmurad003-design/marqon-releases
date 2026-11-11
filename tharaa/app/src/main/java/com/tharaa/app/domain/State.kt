@@ -24,6 +24,8 @@ object K {
     const val LAST_ROLLOVER = "lastRollover"
     const val ONBOARDED = "onboarded"
     const val NO_SPEND = "noSpendDays"
+    const val COMMITMENTS = "commitments"
+    const val HALAL = "halalOnly"
     fun weight(f: Fund) = "w_${f.key}"
 }
 
@@ -42,6 +44,8 @@ data class Settings(
     val lastRollover: String? = null,
     val onboarded: Boolean = false,
     val noSpendDays: Set<Long> = emptySet(),
+    val commitments: List<Commitment> = emptyList(),
+    val halalOnly: Boolean = false,
 ) {
     val isCustom get() = planMode == "custom"
 
@@ -67,6 +71,8 @@ data class Settings(
                 lastBackupAt = m[K.LAST_BACKUP]?.toLongOrNull() ?: 0,
                 lastRollover = m[K.LAST_ROLLOVER],
                 onboarded = m[K.ONBOARDED]?.toBooleanStrictOrNull() ?: false,
+                commitments = CommitmentCodec.decode(m[K.COMMITMENTS]),
+                halalOnly = m[K.HALAL]?.toBooleanStrictOrNull() ?: false,
                 noSpendDays = m[K.NO_SPEND].orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet(),
             )
         }
@@ -123,6 +129,9 @@ data class AppState(
     val loggedToday: Boolean = false,
     /** كل اللي دخل كل صندوق هالشهر، لحساب امتلاء الجرة. */
     val monthInflow: Map<Fund, Double> = emptyMap(),
+    /** الالتزامات الشهرية الفعّالة هالشهر وقديش انسدّ منها. */
+    val commitments: List<CommitmentInfo> = emptyList(),
+    val commitmentsTotal: Double = 0.0,
 ) {
     fun bal(f: Fund) = balances[f] ?: 0.0
 }
@@ -173,7 +182,15 @@ fun derive(raw: RawData, settingsList: List<Setting>, now: Long = System.current
     // تقدير المصاريف الشهرية: أعلى قيمة بين المصاريف الفعلية والميزانية ونص متوسط الدخل، وبحد أدنى 1000 ₪
     // (لأن التسجيل بالبداية بيكون ناقص، وما بدنا هدف طوارئ صغير بشكل وهمي)
     val incomeHint = if (avgIncome > 0) avgIncome * 0.5 else monthIncome * 0.5
-    val base = maxOf(avgExpenses, s.essentialsBudget, monthExpenses, incomeHint, 1000.0)
+    // الالتزامات الشهرية (جمعية، أقساط…) بتنضاف للأساسيات وبتتغطى أول شي من كل دخل
+    val activeCommitments = s.commitments.filter { it.activeIn(thisMonth) }
+    val commitmentsTotal = activeCommitments.sumOf { it.amount }
+    val commitmentInfos = activeCommitments.map { c ->
+        val cat = commitmentCategory(c.id)
+        CommitmentInfo(c, -expenses.filter { it.category == cat && monthKey(it.timestamp) == thisMonth }.sumOf { it.amount })
+    }
+    val essentialsTotal = s.essentialsBudget + commitmentsTotal
+    val base = maxOf(avgExpenses, essentialsTotal, monthExpenses, incomeHint, 1000.0)
 
     val essFunded = raw.txns.filter {
         it.type == T.ALLOC && it.fund == Fund.ESSENTIALS.key && monthKey(it.timestamp) == thisMonth
@@ -194,7 +211,7 @@ fun derive(raw: RawData, settingsList: List<Setting>, now: Long = System.current
         debtRemaining = debtRemaining,
         monthlyBase = base,
         emergencyMonths = s.emergencyMonths,
-        essentialsBudget = s.essentialsBudget,
+        essentialsBudget = essentialsTotal,
         essentialsFundedThisMonth = essFunded,
         avgMonthlyIncome = avgIncome,
         monthIncomeSoFar = monthIncome,
@@ -265,5 +282,7 @@ fun derive(raw: RawData, settingsList: List<Setting>, now: Long = System.current
         streak = streak,
         loggedToday = loggedToday,
         monthInflow = monthInflow,
+        commitments = commitmentInfos,
+        commitmentsTotal = commitmentsTotal,
     )
 }

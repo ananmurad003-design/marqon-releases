@@ -31,11 +31,11 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
-fun LessonsScreen() {
+fun LessonsList(modifier: Modifier = Modifier) {
     var open by remember { mutableIntStateOf(-1) }
-    Screen(title = "المعلم 🎓") { pad ->
+    run {
         LazyColumn(
-            Modifier.fillMaxSize().padding(pad),
+            modifier,
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -119,7 +119,7 @@ fun SettingsScreen(state: AppState, vm: AppViewModel, onBack: () -> Unit) {
             HorizontalDivider()
             SectionTitle("الأساسيات والطوارئ")
             AmountField(essText, { essText = it }, "ميزانية الأساسيات الشهرية (إيجار، فواتير، أكل)")
-            Text("اتركها فاضية إذا ما عندك التزامات ثابتة حالياً. لما تحددها، بتتغطى أول شي من كل دخل.", fontSize = 12.sp)
+            Text("أكل وفواتير ومواصلات. الجمعيات والأقساط ضيفها من «خطتي ← التزامات» وبتنحسب لحالها. اللي بتحدده بيتغطى أول شي من كل دخل.", fontSize = 12.sp)
             OutlinedButton(onClick = { vm.setSetting(K.ESSENTIALS_BUDGET, (parseAmount(essText) ?: 0.0).toString()) }) { Text("حفظ الميزانية") }
 
             var months by remember(s.emergencyMonths) { mutableFloatStateOf(s.emergencyMonths.toFloat()) }

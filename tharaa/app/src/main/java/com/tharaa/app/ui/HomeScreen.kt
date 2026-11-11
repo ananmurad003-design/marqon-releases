@@ -54,6 +54,17 @@ fun adviceFor(s: AppState): List<Advice> {
     if (personal in 0.01..50.0) {
         out += Advice("🪫", "مصروفك قرّب يخلص", "باقي ${money(personal)}. لا تسحب من الصناديق الثانية، خفّف لحد الدخل الجاي.")
     }
+    val today = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH)
+    s.commitments.filter { !it.isPaid && today >= it.c.day }.forEach { ci ->
+        out += Advice("📅", "موعد «${ci.c.name}»", "عليك ${money(ci.c.amount)} هالشهر. ادفعه من صندوق الأساسيات.", "ادفع", "plan")
+    }
+    s.settings.commitments.filter { it.kind == com.tharaa.app.domain.CommitmentKind.JAMEYA && it.receiveMonth == s.currentMonth }.forEach { c ->
+        out += Advice(
+            "🤝", "هالشهر دورك تقبض «${c.name}»" + (if (c.payout > 0) " (${money(c.payout)})" else ""),
+            "لما تقبضها سجّلها كدخل جديد. نصيحة المدرب: مبلغ كبير مرة وحدة لا تخليه للمصروف. الديون أولاً، وبعدين الاستثمار.",
+            "دخل جديد", "income",
+        )
+    }
     if (s.raw.debts.isEmpty() && s.phase == Phase.FOUNDATION) {
         out += Advice("📋", "عليك ديون؟ سجّلها", "حتى أعطيها الأولوية الصح وأعملك خطة سداد.", "الديون", "plan")
     }

@@ -93,7 +93,9 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val day = Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
         val personal = repo.dao.balance(Fund.PERSONAL.key)
 
+        val dueToday = s.commitments.filter { it.activeIn(com.tharaa.app.domain.monthKey(System.currentTimeMillis())) && it.day == day }
         val (title, text) = when {
+            dueToday.isNotEmpty() -> "📅 موعد التزام اليوم" to dueToday.joinToString("، ") { "${it.name}: ${money(it.amount)}" } + ". ادفعه وسجّله من خطتي ← التزامات."
             day == 1 -> "📅 شهر جديد، بداية جديدة" to "افتح ثراء وراجع ترحيل نهاية الشهر. المتبقي من صناديقك بيستنّى يشتغل لصالحك."
             count == 0 -> "📝 سجّلت مصاريف اليوم؟" to "دقيقة وحدة بتفرق. ${Lessons.tipOfTheDay()}"
             personal in 0.01..50.0 -> "⚠️ مصروفك قرّب يخلص" to "باقي ${money(personal)} بمصروفك الشخصي. خفّف لحد الدخل الجاي 💪"

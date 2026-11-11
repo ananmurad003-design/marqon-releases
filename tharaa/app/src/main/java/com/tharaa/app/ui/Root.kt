@@ -30,7 +30,7 @@ private val tabs = listOf(
     NavTab("expenses", "المصاريف", "🧾"),
     NavTab("invest", "الاستثمار", "📈"),
     NavTab("plan", "الديون والأهداف", "🎯"),
-    NavTab("lessons", "المعلم", "🎓"),
+    NavTab("coach", "المدرب", "🧠"),
 )
 
 fun NavHostController.goTab(route: String) = navigate(route) {
@@ -89,7 +89,7 @@ fun TharaaRoot(vm: AppViewModel = viewModel()) {
             composable("expenses") { ExpensesScreen(state, vm, nav) }
             composable("invest") { InvestScreen(state, vm) }
             composable("plan") { PlanScreen(state, vm) }
-            composable("lessons") { LessonsScreen() }
+            composable("coach") { CoachScreen(state, vm) }
             composable("income") { IncomeScreen(state, vm, onBack = { nav.popBackStack() }) }
             composable("expense") { ExpenseScreen(state, vm, onBack = { nav.popBackStack() }) }
             composable("settings") { SettingsScreen(state, vm, onBack = { nav.popBackStack() }) }

@@ -32,13 +32,18 @@ import com.tharaa.app.domain.qty
 @Composable
 fun PlanScreen(state: AppState, vm: AppViewModel) {
     var tab by remember { mutableIntStateOf(if (state.raw.debts.any() && state.debtRemaining > 0) 0 else 1) }
-    Screen(title = "الديون والأهداف 🎯") { pad ->
+    Screen(title = "خطتي 🎯") { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("⛓️ الديون") })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("🎯 الأهداف") })
+                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("📅 التزامات") })
             }
-            if (tab == 0) DebtsTab(state, vm) else GoalsTab(state, vm)
+            when (tab) {
+                0 -> DebtsTab(state, vm)
+                1 -> GoalsTab(state, vm)
+                else -> CommitmentsTab(state, vm)
+            }
         }
     }
 }
@@ -292,6 +297,184 @@ private fun GoalDialog(existing: GoalInfo?, vm: AppViewModel, onDismiss: () -> U
             TextButton(enabled = name.isNotBlank() && t != null && t > 0, onClick = {
                 if (g == null) vm.addGoal(name, emoji, t ?: 0.0, kind)
                 else vm.updateGoal(g.copy(name = name.trim(), emoji = emoji, target = t ?: g.target, kind = kind, done = false))
+                onDismiss()
+            }) { Text("حفظ") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+    )
+}
+
+// ---------------- الالتزامات الشهرية ----------------
+
+@Composable
+private fun CommitmentsTab(state: AppState, vm: AppViewModel) {
+    var edit by remember { mutableStateOf<com.tharaa.app.domain.Commitment?>(null) }
+    var showAdd by remember { mutableStateOf(false) }
+    var payFor by remember { mutableStateOf<com.tharaa.app.domain.Commitment?>(null) }
+    var deleteFor by remember { mutableStateOf<com.tharaa.app.domain.Commitment?>(null) }
+    val today = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH)
+    val all = state.settings.commitments
+    val active = state.commitments
+    val paid = active.filter { it.isPaid }.sumOf { it.c.amount }
+
+    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("التزاماتك الشهرية", style = MaterialTheme.typography.bodyMedium)
+                    Text(money(state.commitmentsTotal), fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    if (state.commitmentsTotal > 0) {
+                        Spacer(Modifier.height(6.dp))
+                        Progress((paid / state.commitmentsTotal).toFloat(), Profit)
+                        Text("دفعت ${money(paid)} هالشهر", fontSize = 12.sp)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "المستشار بيحجز هالمبلغ بصندوق الأساسيات أول شي من كل دخل، قبل أي تقسيم.",
+                        fontSize = 12.sp,
+                    )
+                }
+            }
+        }
+        item { Button(onClick = { showAdd = true }, modifier = Modifier.fillMaxWidth()) { Text("＋ التزام جديد (جمعية، قسط، اشتراك…)") } }
+        if (all.isEmpty()) {
+            item { InfoCard("🤝", "ما في التزامات", "عندك جمعية أو قسط أو اشتراك كل شهر؟ أضفه حتى ما يتفاجأ فيه المستشار.") }
+        }
+        all.forEach { c ->
+            val info = active.firstOrNull { it.c.id == c.id }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(com.tharaa.app.domain.CommitmentKind.emoji(c.kind), fontSize = 26.sp)
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(c.name, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "${money(c.amount)} كل شهر · يوم ${c.day}" + (c.endMonth?.let { " · لحد ${com.tharaa.app.domain.monthTitle(it)}" } ?: ""),
+                                    fontSize = 12.sp,
+                                )
+                            }
+                            IconButton(onClick = { edit = c }) { Icon(Icons.Default.Edit, "تعديل") }
+                            IconButton(onClick = { deleteFor = c }) { Icon(Icons.Default.Delete, "حذف") }
+                        }
+                        if (c.kind == com.tharaa.app.domain.CommitmentKind.JAMEYA && c.receiveMonth != null) {
+                            val mine = c.receiveMonth == state.currentMonth
+                            Text(
+                                (if (mine) "🎉 هالشهر دورك تقبض" else "دورك تقبض: ${com.tharaa.app.domain.monthTitle(c.receiveMonth)}") +
+                                    (if (c.payout > 0) " (${money(c.payout)})" else ""),
+                                color = if (mine) Profit else MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                            )
+                        }
+                        when {
+                            info == null -> Pill("انتهى", MaterialTheme.colorScheme.onSurface)
+                            info.isPaid -> Pill("✅ مدفوع هالشهر", Profit)
+                            else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (today >= c.day) Pill("موعده إجا", Loss) else Pill("باقي ${c.day - today} يوم", Gold)
+                                Spacer(Modifier.width(8.dp))
+                                Button(onClick = { payFor = c }) { Text("ادفع ${money(c.amount)}") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAdd || edit != null) CommitmentDialog(edit, state, vm) { showAdd = false; edit = null }
+    payFor?.let { c ->
+        var from by remember(c.id) { mutableStateOf(if (state.bal(Fund.ESSENTIALS) >= c.amount) Fund.ESSENTIALS else Fund.PERSONAL) }
+        val ok = state.bal(from) >= c.amount - 0.004
+        AlertDialog(
+            onDismissRequest = { payFor = null },
+            title = { Text("دفع ${c.name}: ${money(c.amount)}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("من صندوق:")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(Fund.ESSENTIALS, Fund.PERSONAL, Fund.EMERGENCY).forEach { f ->
+                            FilterChip(selected = from == f, onClick = { from = f }, label = { Text("${f.emoji} ${f.title} (${money(state.bal(f))})") })
+                        }
+                    }
+                    if (!ok) WarnBox(com.tharaa.app.domain.Warn("الرصيد ما بيكفي. سجّل دخلك أول، والمستشار بيحجز الالتزام تلقائياً.", severe = true))
+                    if (from == Fund.EMERGENCY) WarnBox(com.tharaa.app.domain.Warn("الالتزام مش طوارئ. استخدمه بس إذا ما في خيار ثاني."))
+                }
+            },
+            confirmButton = { TextButton(enabled = ok, onClick = { vm.payCommitment(c, from); payFor = null }) { Text("ادفع") } },
+            dismissButton = { TextButton(onClick = { payFor = null }) { Text("إلغاء") } },
+        )
+    }
+    deleteFor?.let { c ->
+        ConfirmDialog("حذف ${c.name}", "بينحذف الالتزام من الخطة. الدفعات السابقة بتضل مسجلة.", confirm = "احذف", onConfirm = { vm.deleteCommitment(c.id) }, onDismiss = { deleteFor = null })
+    }
+}
+
+@Composable
+private fun CommitmentDialog(existing: com.tharaa.app.domain.Commitment?, state: AppState, vm: AppViewModel, onDismiss: () -> Unit) {
+    val now = System.currentTimeMillis()
+    fun monthsFromNow(month: String?): String {
+        if (month.isNullOrBlank()) return ""
+        var n = 0
+        while (n < 600 && com.tharaa.app.domain.monthKey(com.tharaa.app.domain.addMonths(now, n)) < month) n++
+        return n.toString()
+    }
+    var kind by remember { mutableStateOf(existing?.kind ?: com.tharaa.app.domain.CommitmentKind.JAMEYA) }
+    var name by remember { mutableStateOf(existing?.name ?: "") }
+    var amount by remember { mutableStateOf(existing?.amount?.let { qty(it) } ?: "") }
+    var day by remember { mutableStateOf(existing?.day?.toString() ?: "1") }
+    var members by remember { mutableStateOf(existing?.members?.takeIf { it > 0 }?.toString() ?: "") }
+    var receiveIn by remember { mutableStateOf(monthsFromNow(existing?.receiveMonth)) }
+    var remaining by remember { mutableStateOf(existing?.endMonth?.let { m -> monthsFromNow(m).toIntOrNull()?.plus(1)?.toString() } ?: "") }
+    val a = parseAmount(amount)
+    val d = day.toIntOrNull()
+    val ok = a != null && a > 0 && d != null && d in 1..28
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (existing == null) "التزام شهري جديد" else "تعديل الالتزام") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    com.tharaa.app.domain.CommitmentKind.all.forEach { k ->
+                        FilterChip(
+                            selected = kind == k,
+                            onClick = { kind = k },
+                            label = { Text("${com.tharaa.app.domain.CommitmentKind.emoji(k)} ${com.tharaa.app.domain.CommitmentKind.title(k)}") },
+                        )
+                    }
+                }
+                TextInput(name, { name = it }, "الاسم (اختياري): جمعية الشغل، قسط الجوال…")
+                AmountField(amount, { amount = it }, "المبلغ الشهري")
+                NumberField(day, { day = it }, "يوم الدفع بالشهر (1 إلى 28)")
+                if (kind == com.tharaa.app.domain.CommitmentKind.JAMEYA) {
+                    NumberField(members, { members = it }, "عدد المشتركين بالجمعية (اختياري)")
+                    NumberField(receiveIn, { receiveIn = it }, "دورك تقبض بعد كم شهر؟ (0 = هالشهر)")
+                }
+                NumberField(remaining, { remaining = it }, "كم شهر باقي؟ (فاضي = مستمر)")
+                if (a != null && state.avgMonthlyIncome > 0 && (state.commitmentsTotal + a - (existing?.amount ?: 0.0)) > state.avgMonthlyIncome * 0.3) {
+                    WarnBox(com.tharaa.app.domain.Warn("التزاماتك رح تصير أكثر من 30% من متوسط دخلك. هذا بيضغط على كل الخطة."))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = ok, onClick = {
+                val recv = receiveIn.toIntOrNull()?.takeIf { kind == com.tharaa.app.domain.CommitmentKind.JAMEYA }
+                    ?.let { com.tharaa.app.domain.monthKey(com.tharaa.app.domain.addMonths(now, it)) }
+                val end = remaining.toIntOrNull()?.takeIf { it > 0 }?.let { com.tharaa.app.domain.monthKey(com.tharaa.app.domain.addMonths(now, it - 1)) }
+                vm.upsertCommitment(
+                    com.tharaa.app.domain.Commitment(
+                        id = existing?.id ?: 0L,
+                        name = name.trim().ifBlank { com.tharaa.app.domain.CommitmentKind.title(kind) },
+                        amount = a ?: 0.0,
+                        day = d ?: 1,
+                        kind = kind,
+                        receiveMonth = recv,
+                        endMonth = end,
+                        members = if (kind == com.tharaa.app.domain.CommitmentKind.JAMEYA) members.toIntOrNull() ?: 0 else 0,
+                    ),
+                )
                 onDismiss()
             }) { Text("حفظ") }
         },

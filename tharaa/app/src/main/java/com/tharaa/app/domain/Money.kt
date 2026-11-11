@@ -66,3 +66,5 @@ fun monthTitle(key: String): String {
 fun dateText(ts: Long): String = SimpleDateFormat("d/M/yyyy", Locale.US).format(Date(ts))
 
 fun dateTimeText(ts: Long): String = SimpleDateFormat("d/M  HH:mm", Locale.US).format(Date(ts))
+
+fun one(v: Double): String = String.format(Locale.US, "%.1f", v)

@@ -176,7 +176,7 @@ object Advisor {
     /** ليش هالمبلغ لهالصندوق؟ (المستشار يشرح كل سطر) */
     fun reason(f: Fund, i: AdvisorInput): String = when (f) {
         Fund.ESSENTIALS ->
-            if (i.essentialsBudget > 0) "التزاماتك الشهرية (${money(i.essentialsBudget)}) تتغطى أول شي"
+            if (i.essentialsBudget > 0) "أساسياتك والتزاماتك الشهرية (${money(i.essentialsBudget)}) تتغطى أول شي"
             else "ما حددت ميزانية أساسيات، تقدر تحددها من الإعدادات"
         Fund.EMERGENCY -> "رصيدك ${money(i.bal(Fund.EMERGENCY))} من هدف ${money(emergencyTarget(i))} (${i.emergencyMonths} شهور مصاريف)"
         Fund.DEBT ->

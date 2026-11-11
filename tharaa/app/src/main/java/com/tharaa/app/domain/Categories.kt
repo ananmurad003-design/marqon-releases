@@ -24,5 +24,8 @@ object Categories {
         Category("other", "أخرى", "📦", Fund.PERSONAL),
     )
 
-    fun of(key: String?): Category = all.firstOrNull { it.key == key } ?: all.last()
+    val commitment = Category("commitment", "التزام شهري", "📅", Fund.ESSENTIALS)
+
+    fun of(key: String?): Category =
+        if (key != null && key.startsWith("commitment")) commitment else all.firstOrNull { it.key == key } ?: all.last()
 }

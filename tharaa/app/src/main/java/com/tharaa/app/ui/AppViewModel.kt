@@ -23,6 +23,7 @@ import com.tharaa.app.work.PriceService
 import com.tharaa.app.work.Scheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -226,6 +227,86 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             say(if (failed.isEmpty()) "تحدّثت الأسعار ✅" else "تحدّث $ok، وتعذّر: ${failed.joinToString()} (تأكد من الرمز والإنترنت)")
         } finally {
             _busy.emit(false)
+        }
+    }
+
+    // ---------- الالتزامات الشهرية ----------
+
+    private suspend fun saveCommitments(list: List<com.tharaa.app.domain.Commitment>) =
+        repo.setSetting(K.COMMITMENTS, com.tharaa.app.domain.CommitmentCodec.encode(list))
+
+    fun upsertCommitment(c: com.tharaa.app.domain.Commitment) = launch {
+        val list = state.value.settings.commitments
+        val id = if (c.id == 0L) (list.maxOfOrNull { it.id } ?: 0L) + 1 else c.id
+        val item = c.copy(id = id)
+        saveCommitments(if (list.any { it.id == id }) list.map { if (it.id == id) item else it } else list + item)
+        say("انحفظ الالتزام ✅ وصار يتغطى أول شي من كل دخل")
+    }
+
+    fun deleteCommitment(id: Long) = launch {
+        saveCommitments(state.value.settings.commitments.filter { it.id != id })
+        say("انحذف الالتزام")
+    }
+
+    fun payCommitment(c: com.tharaa.app.domain.Commitment, fund: Fund) = launch {
+        streakMilestone()
+        repo.addExpense(c.amount, com.tharaa.app.domain.commitmentCategory(c.id), fund, c.name, null)
+        say("تم دفع «${c.name}» لهالشهر ✅")
+    }
+
+    // ---------- المدرب: قراءة الأسهم ----------
+
+    data class StockReport(
+        val symbol: String,
+        val name: String?,
+        val currency: String,
+        val price: Double,
+        val priceIls: Double?,
+        val closes: List<Double>,
+        val stats: com.tharaa.app.domain.StockStats,
+    )
+
+    private val _stock = MutableStateFlow<StockReport?>(null)
+    val stock: StateFlow<StockReport?> = _stock
+    private val _stockLoading = MutableStateFlow(false)
+    val stockLoading: StateFlow<Boolean> = _stockLoading
+
+    fun analyzeStock(symbol: String) {
+        val sym = symbol.trim().uppercase()
+        if (sym.isBlank() || _stockLoading.value) return
+        _stockLoading.value = true
+        viewModelScope.launch {
+            try {
+                val h = PriceService.history(sym)
+                val stats = h?.let { com.tharaa.app.domain.analyzeCloses(it.closes, it.quote.price) }
+                if (h == null || stats == null) {
+                    say("ما لقيت بيانات لـ $sym. تأكد من الرمز (مثلاً VOO أو AAPL) ومن الإنترنت")
+                } else {
+                    val ils = PriceService.toIls(h.quote.price, h.quote.currency, mutableMapOf())
+                    _stock.value = StockReport(sym, h.quote.name, h.quote.currency, h.quote.price, ils, h.closes, stats)
+                }
+            } catch (e: Exception) {
+                say("صار خطأ بقراءة السهم: ${e.message ?: ""}")
+            } finally {
+                _stockLoading.value = false
+            }
+        }
+    }
+
+    /** أسعار رموز «خطتي لمالي» بالشيكل لحساب عدد الأسهم. */
+    private val _planPrices = MutableStateFlow<Map<String, Double>>(emptyMap())
+    val planPrices: StateFlow<Map<String, Double>> = _planPrices
+
+    fun loadPlanPrices(symbols: List<String>) {
+        val missing = symbols.filter { it !in _planPrices.value }
+        if (missing.isEmpty()) return
+        viewModelScope.launch {
+            val rates = mutableMapOf<String, Double>()
+            for (sym in missing) {
+                val q = PriceService.quote(sym) ?: continue
+                val ils = PriceService.toIls(q.price, q.currency, rates) ?: continue
+                _planPrices.value = _planPrices.value + (sym to ils)
+            }
         }
     }
 
