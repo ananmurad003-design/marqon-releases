@@ -9,7 +9,7 @@ import com.tharaa.app.TharaaApp
 import com.tharaa.app.data.Debt
 import com.tharaa.app.data.Goal
 import com.tharaa.app.data.Holding
-import com.tharaa.app.data.RawData
+import com.tharaa.app.domain.RawData
 import com.tharaa.app.domain.Advisor
 import com.tharaa.app.domain.Allocation
 import com.tharaa.app.domain.AppState
