@@ -23,22 +23,22 @@ import com.tharaa.app.domain.Fund
 import com.tharaa.app.domain.Warn
 
 val Gold = Color(0xFFC9A227)
-val DeepGreen = Color(0xFF0F3D2E)
+val DeepGreen = Color(0xFF1B4D3E)
 val Profit = Color(0xFF2E7D32)
 val Loss = Color(0xFFC62828)
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF1B5E3F),
+    primary = Color(0xFF1B4D3E),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFCDEBD9),
     onPrimaryContainer = Color(0xFF062A1A),
     secondary = Color(0xFF9A7B12),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF7E7B0),
+    secondaryContainer = Color(0xFFF6EBC6),
     onSecondaryContainer = Color(0xFF2E2400),
-    background = Color(0xFFF6F4EE),
+    background = Color(0xFFF1F5F2),
     surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFEDEAE1),
+    surfaceVariant = Color(0xFFE2EAE5),
     errorContainer = Color(0xFFFFE1DC),
 )
 
@@ -58,7 +58,15 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun TharaaTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors, content = content)
+    MaterialTheme(
+        colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
+        shapes = Shapes(
+            small = RoundedCornerShape(10.dp),
+            medium = RoundedCornerShape(20.dp),
+            large = RoundedCornerShape(28.dp),
+        ),
+        content = content,
+    )
 }
 
 fun Fund.colorValue() = Color(color)

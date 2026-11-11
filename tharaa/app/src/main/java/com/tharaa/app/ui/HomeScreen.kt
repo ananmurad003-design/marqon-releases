@@ -24,6 +24,7 @@ import com.tharaa.app.domain.Lessons
 import com.tharaa.app.domain.Phase
 import com.tharaa.app.domain.money
 import com.tharaa.app.domain.monthTitle
+import com.tharaa.app.data.GoalKind
 
 data class Advice(val emoji: String, val title: String, val body: String, val action: String? = null, val route: String? = null)
 
@@ -62,156 +63,207 @@ fun adviceFor(s: AppState): List<Advice> {
 @Composable
 fun HomeScreen(state: AppState, vm: AppViewModel, nav: NavHostController) {
     Screen(
-        title = "ثراء 👑",
+        title = "ثراء",
         actions = { IconButton(onClick = { nav.navigate("settings") }) { Icon(Icons.Default.Settings, "الإعدادات") } },
     ) { pad ->
         LazyColumn(
             Modifier.fillMaxSize().padding(pad),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item { NetWorthCard(state) }
+            item { HeroCard(state) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { nav.navigate("income") }, modifier = Modifier.weight(1f).height(56.dp)) {
-                        Text("＋ دخل جديد", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
-                    OutlinedButton(onClick = { nav.navigate("expense") }, modifier = Modifier.weight(1f).height(56.dp)) {
-                        Text("－ مصروف", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = { nav.navigate("income") },
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                    ) { Text("＋ دخل جديد", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                    OutlinedButton(
+                        onClick = { nav.navigate("expense") },
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                    ) { Text("－ مصروف", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                }
+            }
+            if (!state.loggedToday) {
+                item {
+                    TextButton(onClick = { vm.markNoSpend() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("ما صرفت شي اليوم 🙌  (بتحافظ على سلسلتك)")
                     }
                 }
             }
-            item { PhaseCard(state) }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SectionTitle("جرارك", Modifier.weight(1f))
+                    Text("الامتلاء = اللي باقي من دخل الشهر", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
+                }
+            }
+            Fund.entries.chunked(4).forEach { row ->
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { f -> JarTile(f, state, Modifier.weight(1f)) { nav.navigate("fund/${f.key}") } }
+                    }
+                }
+            }
             adviceFor(state).forEach { a ->
                 item {
-                    InfoCard(a.emoji, a.title, a.body, container = MaterialTheme.colorScheme.secondaryContainer) {
-                        if (a.action != null && a.route != null) {
-                            FilledTonalButton(onClick = { if (a.route in listOf("plan", "invest", "expenses")) nav.goTab(a.route) else nav.navigate(a.route) }) { Text(a.action) }
-                        }
-                    }
-                }
-            }
-            item { SectionTitle("صناديقك") }
-            Fund.entries.chunked(2).forEach { row ->
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        row.forEach { f -> FundTile(f, state, Modifier.weight(1f)) { nav.navigate("fund/${f.key}") } }
-                        if (row.size == 1) Spacer(Modifier.weight(1f))
+                    AdviceCard(a) {
+                        val r = a.route ?: return@AdviceCard
+                        if (r in listOf("plan", "invest", "expenses")) nav.goTab(r) else nav.navigate(r)
                     }
                 }
             }
             val goals = state.goals.filter { !it.goal.done }
             if (goals.isNotEmpty()) {
                 item { SectionTitle("أهدافك") }
-                goals.forEach { g ->
-                    item {
-                        Card(Modifier.fillMaxWidth().clickable { nav.goTab("plan") }) {
-                            Column(Modifier.padding(14.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("${g.goal.emoji} ${g.goal.name}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                    Text("${(g.progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = Gold)
+                item {
+                    Card(Modifier.fillMaxWidth().clickable { nav.goTab("plan") }, shape = RoundedCornerShape(20.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            goals.forEach { g ->
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(g.goal.emoji, fontSize = 20.sp)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(g.goal.name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                        Text("${(g.progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    Progress(g.progress, Gold)
+                                    Text(
+                                        "${money(g.saved)} من ${money(g.goal.target)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.padding(top = 2.dp),
+                                    )
                                 }
-                                Spacer(Modifier.height(6.dp))
-                                Progress(g.progress, Gold)
-                                Spacer(Modifier.height(4.dp))
-                                Text("${money(g.saved)} من ${money(g.goal.target)}", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
                 }
             }
-            item {
-                InfoCard("💡", "نصيحة اليوم", Lessons.tipOfTheDay(), container = MaterialTheme.colorScheme.primaryContainer)
-            }
+            item { TipCard(Lessons.tipOfTheDay()) }
             item { Spacer(Modifier.height(8.dp)) }
         }
     }
 }
 
 @Composable
-private fun NetWorthCard(s: AppState) {
-    Box(
+private fun HeroCard(s: AppState) {
+    Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Brush.linearGradient(listOf(DeepGreen, Color(0xFF1F6B4A))))
-            .padding(20.dp),
+            .clip(RoundedCornerShape(28.dp))
+            .background(DeepGreen)
+            .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("صافي ثروتك", color = Color.White.copy(alpha = 0.75f), modifier = Modifier.weight(1f))
+            StreakChip(s.streak)
+        }
+        Text(money(s.netWorth), color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "نقد ${money(s.cashTotal)}   محفظة ${money(s.portfolioValue)}   ديون ${money(s.debtRemaining)}",
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 12.sp,
+        )
+        Spacer(Modifier.height(18.dp))
+        Text("مرحلتك ${s.phase.step} من 4: ${s.phase.title}", color = Gold, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        PhaseRoad(s.phase)
+        Spacer(Modifier.height(10.dp))
+        Text(s.phase.description, color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp, lineHeight = 19.sp)
+        if (s.settings.isCustom) {
+            Spacer(Modifier.height(6.dp))
+            Text("✋ تستخدم نسب مخصصة", color = Gold, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "${monthTitle(s.currentMonth)}: دخلك ${money(s.monthIncome)}، مصاريفك ${money(s.monthExpenses)}",
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 12.sp,
+        )
+    }
+}
+
+/** امتلاء الجرة: الطوارئ نسبة للهدف، الديون نسبة للدين المتبقي، والباقي نسبة لما دخلها هالشهر. */
+fun fillOf(f: Fund, s: AppState): Float {
+    val bal = s.bal(f)
+    if (bal <= 0) return 0f
+    val ratio = when (f) {
+        Fund.EMERGENCY -> bal / s.emergencyTarget.coerceAtLeast(1.0)
+        Fund.DEBT -> if (s.debtRemaining > 0) bal / s.debtRemaining else 1.0
+        Fund.GOALS -> {
+            val targets = s.goals.filter { it.goal.kind == GoalKind.SAVING && !it.goal.done }.sumOf { it.goal.target }
+            if (targets > 0) bal / targets else 1.0
+        }
+        else -> {
+            val inflow = s.monthInflow[f] ?: 0.0
+            if (inflow > 0) bal / inflow else 1.0
+        }
+    }
+    return ratio.toFloat().coerceIn(0.04f, 1f)
+}
+
+@Composable
+private fun JarTile(f: Fund, s: AppState, modifier: Modifier, onClick: () -> Unit) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Jar(fillOf(f, s), f.colorValue(), Modifier.width(54.dp).height(66.dp))
+            Text(f.emoji, fontSize = 18.sp, modifier = Modifier.padding(top = 10.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(f.title, fontSize = 11.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(money(s.bal(f)), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = f.colorValue(), maxLines = 1)
+    }
+}
+
+@Composable
+private fun AdviceCard(a: Advice, onAction: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(a.emoji, fontSize = 26.sp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(a.title, fontWeight = FontWeight.Bold)
+            Text(a.body, style = MaterialTheme.typography.bodySmall)
+        }
+        if (a.action != null && a.route != null) {
+            Spacer(Modifier.width(8.dp))
+            FilledTonalButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 12.dp)) { Text(a.action, fontSize = 13.sp) }
+        }
+    }
+}
+
+@Composable
+private fun TipCard(tip: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+    ) {
+        Box(
+            Modifier
+                .width(4.dp)
+                .height(56.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Gold),
+        )
+        Spacer(Modifier.width(12.dp))
         Column {
-            Text("صافي ثروتك", color = Color.White.copy(alpha = 0.8f))
-            Text(money(s.netWorth), color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
-            Row {
-                Stat("نقد بالصناديق", money(s.cashTotal), Modifier.weight(1f))
-                Stat("المحفظة", money(s.portfolioValue), Modifier.weight(1f))
-                Stat("الديون", money(s.debtRemaining), Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "${monthTitle(s.currentMonth)}: دخل ${money(s.monthIncome)} · مصاريف ${money(s.monthExpenses)}",
-                color = Gold,
-                fontSize = 13.sp,
-            )
-        }
-    }
-}
-
-@Composable
-private fun Stat(label: String, value: String, modifier: Modifier) {
-    Column(modifier) {
-        Text(label, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-        Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-    }
-}
-
-@Composable
-private fun PhaseCard(s: AppState) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text("مرحلتك ${s.phase.step} من 4", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Text(s.phase.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Phase.entries.forEach { p ->
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(if (p.step <= s.phase.step) Gold else MaterialTheme.colorScheme.surfaceVariant),
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(s.phase.description, style = MaterialTheme.typography.bodyMedium)
-            if (s.settings.isCustom) {
-                Spacer(Modifier.height(6.dp))
-                Pill("تستخدم نسب مخصصة", MaterialTheme.colorScheme.secondary)
-            }
-        }
-    }
-}
-
-@Composable
-private fun FundTile(f: Fund, s: AppState, modifier: Modifier, onClick: () -> Unit) {
-    Card(modifier.clickable(onClick = onClick)) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(f.emoji, fontSize = 20.sp)
-                Spacer(Modifier.width(6.dp))
-                Text(f.title, fontSize = 13.sp, maxLines = 1)
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(money(s.bal(f)), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = f.colorValue())
-            when (f) {
-                Fund.EMERGENCY -> {
-                    Spacer(Modifier.height(4.dp))
-                    Progress((s.bal(f) / s.emergencyTarget.coerceAtLeast(1.0)).toFloat(), f.colorValue())
-                    Text("الهدف ${money(s.emergencyTarget)}", fontSize = 11.sp)
-                }
-                Fund.DEBT -> if (s.debtRemaining > 0) Text("متبقي ديون ${money(s.debtRemaining)}", fontSize = 11.sp)
-                else -> {}
-            }
+            Text("نصيحة اليوم", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary, fontSize = 13.sp)
+            Text(tip, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }

@@ -2,6 +2,7 @@
 
 package com.tharaa.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +32,13 @@ import com.tharaa.app.domain.moneySigned
 import com.tharaa.app.domain.monthKey
 import com.tharaa.app.domain.monthTitle
 import com.tharaa.app.domain.parseAmount
+
+private val categoryPalette = listOf(
+    androidx.compose.ui.graphics.Color(0xFF1B4D3E), androidx.compose.ui.graphics.Color(0xFFC9A227),
+    androidx.compose.ui.graphics.Color(0xFF4F7CAC), androidx.compose.ui.graphics.Color(0xFFD8693B),
+    androidx.compose.ui.graphics.Color(0xFF7B5EA7), androidx.compose.ui.graphics.Color(0xFF3E9C8F),
+    androidx.compose.ui.graphics.Color(0xFFB0475A), androidx.compose.ui.graphics.Color(0xFF8A9A5B),
+)
 
 private val spendableFunds = listOf(Fund.ESSENTIALS, Fund.PERSONAL, Fund.EDUCATION, Fund.GIVING, Fund.EMERGENCY, Fund.GOALS)
 
@@ -179,16 +187,21 @@ fun ExpensesScreen(state: AppState, vm: AppViewModel, nav: NavHostController) {
                 if (byCat.isNotEmpty()) {
                     item { SectionTitle("حسب التصنيف") }
                     item {
+                        val palette = categoryPalette
+                        val slices = byCat.mapIndexed { i, (key, v) -> Slice(Categories.of(key).title, v, palette[i % palette.size]) }
                         Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                byCat.forEach { (key, v) ->
+                            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Donut(slices, money(total), "${byCat.size} تصنيف")
+                                Spacer(Modifier.height(14.dp))
+                                byCat.forEachIndexed { i, (key, v) ->
                                     val c = Categories.of(key)
-                                    Column {
-                                        Row {
-                                            Text("${c.emoji} ${c.title}", modifier = Modifier.weight(1f))
-                                            Text("${money(v)} · ${(v / total * 100).toInt()}%", fontWeight = FontWeight.Bold)
-                                        }
-                                        Progress((v / total).toFloat(), c.fund.colorValue())
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        androidx.compose.foundation.layout.Box(
+                                            Modifier.size(10.dp).background(palette[i % palette.size], androidx.compose.foundation.shape.CircleShape),
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("${c.emoji} ${c.title}", modifier = Modifier.weight(1f))
+                                        Text("${money(v)} · ${(v / total * 100).toInt()}%", fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }

@@ -49,6 +49,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun say(text: String) { _messages.tryEmit(text) }
 
+    private val _celebrations = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val celebrations: SharedFlow<String> = _celebrations
+
+    fun celebrate(text: String) { _celebrations.tryEmit(text) }
+
+    /** احتفال عند محطات السلسلة لما يكون هذا أول تسجيل اليوم. */
+    private fun streakMilestone() {
+        val s = state.value
+        if (s.loggedToday) return
+        val next = s.streak + 1
+        if (next in setOf(3, 7, 14, 30, 60, 100, 365)) celebrate("🔥 $next أيام متتالية وإنت ماسك مالك! استمر")
+    }
+
+    fun markNoSpend() = launch {
+        val s = state.value
+        if (s.loggedToday) return@launch say("سجّلت اليوم أصلاً ✅")
+        streakMilestone()
+        val today = com.tharaa.app.domain.startOfDay(System.currentTimeMillis())
+        val days = (s.settings.noSpendDays + today).sorted().takeLast(120)
+        repo.setSetting(K.NO_SPEND, days.joinToString(","))
+        say("يوم بلا مصاريف 👏 كل يوم زي هيك بيقرّبك")
+    }
+
     private fun launch(block: suspend () -> Unit) = viewModelScope.launch {
         try {
             block()
@@ -91,8 +114,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun plan(amount: Double): Allocation? = state.value.input?.let { Advisor.plan(amount, it) }
 
     fun saveIncome(amount: Double, source: String, note: String, plan: Allocation, lines: Map<Fund, Double>, onDone: () -> Unit) = launch {
+        val first = state.value.raw.incomes.isEmpty()
+        streakMilestone()
         repo.saveIncome(amount, source.trim(), note.trim(), plan.phase.name, lines, state.value.goals)
-        say("تم تقسيم ${money(amount)} على صناديقك 💰")
+        if (first) celebrate("أول دخل بالطريق للثراء! 🚀\nمن هلأ كل شيكل إله مكان")
+        else say("تم تقسيم ${money(amount)} على صناديقك 💰")
         onDone()
     }
 
@@ -104,6 +130,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- المصاريف ----------
 
     fun addExpense(amount: Double, category: String, fund: Fund, note: String, goalId: Long?, onDone: () -> Unit) = launch {
+        streakMilestone()
         repo.addExpense(amount, category, fund, note.trim(), goalId)
         val left = state.value.bal(fund) - amount
         say(if (left < 50 && fund == Fund.PERSONAL) "انسجل ✅ انتبه: باقي ${money(left)} بمصروفك" else "انسجل المصروف ✅")
@@ -137,14 +164,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun payDebt(d: Debt, amount: Double, from: Fund, remainingBefore: Double) = launch {
         repo.payDebt(d, amount, from)
-        say(if (amount >= remainingBefore - 0.5) "🎉 مبروك! خلّصت دين «${d.name}» بالكامل" else "تم السداد ✅ باقي ${money(remainingBefore - amount)}")
+        if (amount >= remainingBefore - 0.5) celebrate("خلّصت دين «${d.name}» بالكامل!\nدين أقل = حرية أكثر")
+        else say("تم السداد ✅ باقي ${money(remainingBefore - amount)}")
     }
 
     // ---------- الأهداف ----------
 
     fun addGoal(name: String, emoji: String, target: Double, kind: String) = launch { repo.addGoal(name.trim(), emoji, target, kind) }
 
-    fun updateGoal(g: Goal) = launch { repo.updateGoal(g) }
+    fun updateGoal(g: Goal) = launch {
+        val was = state.value.raw.goals.firstOrNull { it.id == g.id }
+        repo.updateGoal(g)
+        if (g.done && was != null && !was.done) celebrate("حققت هدف «${g.name}» ${g.emoji}\nالهدف المكتوب بيتحقق")
+    }
 
     fun deleteGoal(g: GoalInfo) = launch {
         repo.deleteGoal(g)

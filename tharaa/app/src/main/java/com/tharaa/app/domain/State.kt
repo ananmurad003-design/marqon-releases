@@ -23,6 +23,7 @@ object K {
     const val LAST_BACKUP = "lastBackupAt"
     const val LAST_ROLLOVER = "lastRollover"
     const val ONBOARDED = "onboarded"
+    const val NO_SPEND = "noSpendDays"
     fun weight(f: Fund) = "w_${f.key}"
 }
 
@@ -40,6 +41,7 @@ data class Settings(
     val lastBackupAt: Long = 0,
     val lastRollover: String? = null,
     val onboarded: Boolean = false,
+    val noSpendDays: Set<Long> = emptySet(),
 ) {
     val isCustom get() = planMode == "custom"
 
@@ -65,6 +67,7 @@ data class Settings(
                 lastBackupAt = m[K.LAST_BACKUP]?.toLongOrNull() ?: 0,
                 lastRollover = m[K.LAST_ROLLOVER],
                 onboarded = m[K.ONBOARDED]?.toBooleanStrictOrNull() ?: false,
+                noSpendDays = m[K.NO_SPEND].orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet(),
             )
         }
     }
@@ -115,6 +118,11 @@ data class AppState(
     val input: AdvisorInput? = null,
     val pendingRollover: List<RolloverMove> = emptyList(),
     val currentMonth: String = "",
+    /** عدد الأيام المتتالية اللي سجّلت فيها شي (مصروف، دخل، أو «ما صرفت»). */
+    val streak: Int = 0,
+    val loggedToday: Boolean = false,
+    /** كل اللي دخل كل صندوق هالشهر، لحساب امتلاء الجرة. */
+    val monthInflow: Map<Fund, Double> = emptyMap(),
 ) {
     fun bal(f: Fund) = balances[f] ?: 0.0
 }
@@ -216,6 +224,20 @@ fun derive(raw: RawData, settingsList: List<Setting>, now: Long = System.current
         }
     }
 
+    // السلسلة: أيام متتالية فيها تسجيل، بتضل حيّة إذا آخر تسجيل كان مبارح
+    val loggedDays = (expenses.map { startOfDay(it.timestamp) } + raw.incomes.map { startOfDay(it.timestamp) } + s.noSpendDays).toSet()
+    val today = startOfDay(now)
+    val loggedToday = today in loggedDays
+    var day = if (loggedToday) today else startOfDay(today - 12 * 3_600_000L)
+    var streak = 0
+    while (day in loggedDays) {
+        streak++
+        day = startOfDay(day - 12 * 3_600_000L)
+    }
+    val monthInflow = Fund.entries.associateWith { f ->
+        byFund[f.key].orEmpty().filter { it.amount > 0 && monthKey(it.timestamp) == thisMonth }.sumOf { it.amount }
+    }
+
     val cash = balances.values.sum()
     return AppState(
         loaded = true,
@@ -240,5 +262,8 @@ fun derive(raw: RawData, settingsList: List<Setting>, now: Long = System.current
         input = input,
         pendingRollover = rollover,
         currentMonth = thisMonth,
+        streak = streak,
+        loggedToday = loggedToday,
+        monthInflow = monthInflow,
     )
 }

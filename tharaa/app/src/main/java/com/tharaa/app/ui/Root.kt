@@ -44,6 +44,15 @@ fun TharaaRoot(vm: AppViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snack = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.messages.collect { snack.showSnackbar(it, withDismissAction = true) } }
+    var party by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { vm.celebrations.collect { party = it } }
+    // احتفال لما تنتقل لمرحلة جديدة
+    var lastStep by remember { mutableIntStateOf(0) }
+    LaunchedEffect(state.loaded, state.phase) {
+        if (!state.loaded) return@LaunchedEffect
+        if (lastStep != 0 && state.phase.step > lastStep) vm.celebrate("وصلت المرحلة ${state.phase.step}: ${state.phase.title}!")
+        lastStep = state.phase.step
+    }
 
     if (!state.loaded) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -91,6 +100,7 @@ fun TharaaRoot(vm: AppViewModel = viewModel()) {
     }
 
     if (state.pendingRollover.isNotEmpty()) RolloverDialog(state, vm)
+    party?.let { Celebration(it) { party = null } }
 }
 
 @Composable
